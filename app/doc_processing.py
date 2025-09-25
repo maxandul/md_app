@@ -1,0 +1,494 @@
+# ---------------------------
+# Scannen & Plausibilisierung
+# ---------------------------
+
+# app/doc_processing.py
+from __future__ import annotations
+from pathlib import Path
+import re
+import unicodedata
+import pandas as pd
+from typing import Dict, Any
+import shutil
+
+from .docx_tools import read_content_controls, detect_doc_type, map_rb_gesamteindruck
+
+# ---------------------------
+# Hilfsfunktionen
+# ---------------------------
+
+def _strip_accents(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s or "")
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    s = s.replace("-", " ")
+    return s
+
+def _name_matches(full_name_from_doc: str, sap_row: pd.Series) -> bool:
+    doc = _strip_accents(full_name_from_doc)
+    sap = _strip_accents(f"{sap_row.get('Rufname','')} {sap_row.get('Nachname','')}")
+    return doc == sap
+
+def _pn_in_sap(pn: str, sap_index: dict[str, pd.Series]) -> pd.Series | None:
+    if not pn:
+        return None
+    return sap_index.get(str(pn))
+
+def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
+    idx = {}
+    for _, r in df.iterrows():
+        pn = str(r.get("ID_NO_ZERO", "")).strip()
+        if pn:
+            idx[pn] = r
+    return idx
+
+# ---------------------------
+# Scannen & Plausibilisierung (Top-Level)
+# ---------------------------
+
+def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
+    """
+    Scannt NUR *.docx direkt in input_dir (keine Unterordner),
+    liest Tags mit python-docx, validiert gg. SAP und liefert eine Liste von Dicts:
+      - file, typ, pn, name, status ('ok'|'manuell'|'unbekannt'), reason, extras (dict)
+    """
+    results: list[Dict[str, Any]] = []
+    sap_idx = build_sap_index(sap_df)
+
+    for p in sorted(input_dir.glob("*.docx")):  # nur Top-Level
+        try:
+            tags = read_content_controls(p)
+        except Exception as e:
+            results.append({
+                "file": p.name, "typ": "Unbekannt", "pn": "", "name": "",
+                "status": "manuell", "reason": f"DOCX beschädigt/lesefehler: {e}", "extras": {}
+            })
+            continue
+
+        typ = detect_doc_type(tags)
+
+        if typ == "Rückblick":
+            name = (tags.get("rb_name") or "").strip()
+            pn   = (tags.get("rb_pn") or "").strip()
+            if not name or not pn:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "Pflichtfelder rb_name/rb_pn fehlen", "extras": {"all_tags": tags}
+                })
+                continue
+
+            sap_row = _pn_in_sap(pn, sap_idx)
+            if sap_row is None:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
+                })
+                continue
+
+            if not _name_matches(name, sap_row):
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
+                })
+                continue
+
+            gi_disp = (tags.get("rb_gesamteindruck") or "").strip()
+            gi_code = map_rb_gesamteindruck(gi_disp) if gi_disp else ""
+            if not gi_code:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
+                })
+                continue
+
+            results.append({
+                "file": p.name, "typ": typ, "pn": pn, "name": name,
+                "status": "ok", "reason": "",
+                "extras": {"rb_gesamteindruck": gi_code, "all_tags": tags}
+            })
+
+        elif typ == "Ausblick":
+            name = (tags.get("ab_name") or "").strip()
+            pn   = (tags.get("ab_pn") or "").strip()
+            if not name or not pn:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "Pflichtfelder ab_name/ab_pn fehlen", "extras": {"all_tags": tags}
+                })
+                continue
+
+            sap_row = _pn_in_sap(pn, sap_idx)
+            if sap_row is None:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
+                })
+                continue
+
+            if not _name_matches(name, sap_row):
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
+                })
+                continue
+
+            results.append({
+                "file": p.name, "typ": typ, "pn": pn, "name": name,
+                "status": "ok", "reason": "", "extras": {"all_tags": tags}
+            })
+
+        else:
+            results.append({
+                "file": p.name, "typ": "Unbekannt", "pn": "", "name": "",
+                "status": "manuell", "reason": "Dokumenttyp nicht erkannt (keine rb_/ab_-Tags)", "extras": {"all_tags": tags}
+            })
+
+    return results
+
+# ---------------------------
+# Exports & Moves
+# ---------------------------
+
+SAP_COLS = [
+    "PersNr",
+    "Beurteilungsart",
+    "Beginndatum IT9075",
+    "Endedatum IT9075",
+    "Ans.",
+    "Datum MAB",
+    "Beurteilungszeitraum von",
+    "Beurteilungszeitraum bis",
+    "Gesamtbeurteilung",
+    "Zielerreichung",
+    "Fachliche Kompetenz",
+    "Sozialkompetenz (Verhalten)",
+    "Führungskompetenz",
+    "Nächster Termin",
+]
+
+def _parse_date(val: str):
+    if not val:
+        return pd.NaT
+    try:
+        return pd.to_datetime(val, dayfirst=True, errors="coerce")
+    except Exception:
+        return pd.NaT
+
+def _safe_get(tags: dict, key: str) -> str:
+    return str(tags.get(key, "") or "").strip()
+
+def _map_beurteilungsart(typ: str) -> str:
+    # einfache Abbildung; feinmapping kannst du bei Bedarf ändern
+    if typ == "Rückblick":
+        return "Rückblick"
+    if typ == "Ausblick":
+        return "Ausblick"
+    return typ
+
+def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx: Path):
+    """
+    Baut aus den 'ok'-Rückblick-DOCX-Ergebnissen die SAP-Massenupload-Tabelle
+    gemäss Vorgabe (Beurteilungsart = '1', Datumslogik mit Eintritt/Austritt,
+    Zeitraum-Felder an IT9075 geklemmt).
+    """
+    # PN -> SAP-Zeile Index
+    sap_idx = {str(r.get("ID_NO_ZERO", "")).strip(): r for _, r in sap_df.iterrows()}
+
+    def _d(s: str):
+        if not s:
+            return pd.NaT
+        return pd.to_datetime(s, dayfirst=True, errors="coerce")
+
+    rows = []
+
+    for r in results:
+        if r.get("status") != "ok" or r.get("typ") != "Rückblick":
+            continue
+
+        # Tags holen (erst all_tags, sonst tags)
+        tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
+        pn = str(r.get("pn", "")).strip()
+        if not pn:
+            continue
+
+        # SAP-Zeile + Eintritt/Austritt/Ans.
+        sap_row = sap_idx.get(pn)
+        eintritt = pd.to_datetime(sap_row.get("Eintritt"), errors="coerce") if sap_row is not None else pd.NaT
+        austritt = pd.to_datetime(sap_row.get("Austritt"), errors="coerce") if sap_row is not None else pd.NaT
+        ans = str(sap_row.get("Ans.", "") or "").strip() if sap_row is not None else ""
+
+        # Dokument-Daten (Rückblick)
+        doc_von = _d(tags.get("rb_datum_von", ""))
+        doc_bis = _d(tags.get("rb_datum_bis", ""))
+        datum_mab = _d(tags.get("rb_datum_gespraech", ""))
+
+        # Rückblick-Jahr bestimmen
+        if not pd.isna(doc_von):
+            rb_year = doc_von.year
+        elif not pd.isna(doc_bis):
+            rb_year = doc_bis.year
+        else:
+            rb_year = pd.Timestamp.today().year
+
+        # IT9075-Grenzen (RB-Jahr ∩ Beschäftigung)
+        year_start = pd.Timestamp(year=rb_year, month=1, day=1)
+        year_end   = pd.Timestamp(year=rb_year, month=12, day=31)
+
+        begin_it9075 = year_start
+        if not pd.isna(eintritt) and eintritt > begin_it9075:
+            begin_it9075 = eintritt
+
+        end_it9075 = year_end
+        if not pd.isna(austritt) and austritt < end_it9075:
+            end_it9075 = austritt
+
+        # Beurteilungszeitraum: an IT9075 klemmen + Fallback
+        period_von = doc_von if not pd.isna(doc_von) else begin_it9075
+        if not pd.isna(period_von) and not pd.isna(begin_it9075):
+            period_von = max(period_von, begin_it9075)
+
+        period_bis = doc_bis if not pd.isna(doc_bis) else end_it9075
+        if not pd.isna(period_bis) and not pd.isna(end_it9075):
+            period_bis = min(period_bis, end_it9075)
+
+        # Sanity: Beschäftigung gar nicht im RB-Jahr (Begin > End)
+        if (not pd.isna(begin_it9075)) and (not pd.isna(end_it9075)) and (begin_it9075 > end_it9075):
+            # Kein gültiges Intervall -> neutralisieren (optional: loggen)
+            begin_it9075 = pd.NaT
+            end_it9075 = pd.NaT
+            # Fallbacks lassen wir stehen; wenn doc_von/bis leer, bleiben sie bereits auf NaT bzw. IT9075
+
+        # Gesamteindruck (A–E) aus Plausi
+        gesamt = (r.get("extras", {}) or {}).get("rb_gesamteindruck", "")
+
+        rows.append({
+            "PersNr": pn,
+            "Beurteilungsart": "1",
+            "Beginndatum IT9075": begin_it9075,
+            "Endedatum IT9075": end_it9075,
+            "Ans.": ans,
+            "Datum MAB": datum_mab,
+            "Beurteilungszeitraum von": period_von,
+            "Beurteilungszeitraum bis": period_bis,
+            "Gesamtbeurteilung": gesamt,
+            "Zielerreichung": "",
+            "Fachliche Kompetenz": "",
+            "Sozialkompetenz (Verhalten)": "",
+            "Führungskompetenz": "",
+            "Nächster Termin": pd.NaT,
+        })
+
+    df_out = pd.DataFrame(rows, columns=SAP_COLS)
+    out_xlsx.parent.mkdir(parents=True, exist_ok=True)
+    with pd.ExcelWriter(out_xlsx, engine="openpyxl", datetime_format="YYYY-MM-DD") as wr:
+        df_out.to_excel(wr, index=False, sheet_name="Massenupload")
+
+
+def export_ds_csv(results: list[dict], out_csv: Path):
+    """
+    Breiter DS-Export: eine Zeile je Dokument, alle Tags (soweit vorhanden).
+    """
+    rows = []
+    for r in results:
+        base = {
+            "file": r.get("file", ""),
+            "typ": r.get("typ", ""),
+            "pn": r.get("pn", ""),
+            "name": r.get("name", ""),
+            "status": r.get("status", ""),
+        }
+        # nimm bevorzugt all_tags, sonst tags
+        tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
+        # flach mergen
+        row = {**base, **tags}
+        # Extras, die interessant sind
+        if r.get("typ") == "Rückblick":
+            row["rb_gesamteindruck_code"] = (r.get("extras", {}) or {}).get("rb_gesamteindruck", "")
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_csv, index=False, encoding="utf-8-sig")
+
+def move_after_processing(input_dir: Path, results: list[dict]):
+    """
+    Verschiebt Dateien je nach Status:
+      - OK  -> /ruecklauf/archiv
+      - manuell -> /ruecklauf/manuell
+    Achtung: nur DOCX (hier); PDFs kommen im separaten Schritt.
+    """
+    archiv_dir = input_dir / "archiv"
+    manuell_dir = input_dir / "manuell"
+    archiv_dir.mkdir(parents=True, exist_ok=True)
+    manuell_dir.mkdir(parents=True, exist_ok=True)
+
+    def _unique_path(base_dir: Path, name: str) -> Path:
+        target = base_dir / name
+        if not target.exists():
+            return target
+        stem, suffix = Path(name).stem, Path(name).suffix
+        i = 1
+        while True:
+            cand = base_dir / f"{stem} ({i}){suffix}"
+            if not cand.exists():
+                return cand
+            i += 1
+
+    moved_ok = moved_man = 0
+    for r in results:
+        fname = r.get("file")
+        if not fname:
+            continue
+        src = input_dir / fname
+        if not src.exists() or src.suffix.lower() != ".docx":
+            continue
+
+        if r.get("status") == "ok":
+            dst = _unique_path(archiv_dir, fname)
+            shutil.move(str(src), str(dst))
+            moved_ok += 1
+        elif r.get("status") == "manuell":
+            dst = _unique_path(manuell_dir, fname)
+            shutil.move(str(src), str(dst))
+            moved_man += 1
+
+    return moved_ok, moved_man
+
+def export_ds_csv(results: list[dict], out_csv: Path):
+    """
+    Exportiert alle gelesenen ContentControls aus Rückblick/Ausblick-DOCX
+    für Data-Science-Analysen.
+    Jede Zeile = ein Tag-Wert-Paar pro Dokument.
+    """
+    rows = []
+    today = pd.Timestamp.today().normalize()
+
+    for r in results:
+        if r.get("status") != "ok":
+            continue  # nur gültige DOCX
+
+        typ = r.get("typ")
+        if typ not in ("Rückblick", "Ausblick"):
+            continue
+
+        pn = r.get("pn", "")
+        fname = Path(r.get("file", "")).name
+        tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
+
+        for key, val in tags.items():
+            rows.append({
+                "PersNr": pn,
+                "Typ": typ,
+                "Feld": key,
+                "Wert": val,
+                "Datei": fname,
+                "Datum Extraktion": today
+            })
+
+    df_out = pd.DataFrame(rows,
+                          columns=["PersNr","Typ","Feld","Wert","Datei","Datum Extraktion"])
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    df_out.to_csv(out_csv, sep=";", index=False, encoding="utf-8")
+
+
+# ---------------------------
+# PDF-Handling (Umbenennen + Verschieben)
+# ---------------------------
+
+def _normalize(s: str) -> str:
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    return s.encode("ascii", "ignore").decode("ascii").lower()
+
+def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame) -> list[dict]:
+    """
+    Bearbeitet PDFs im Eingangsordner:
+    - Typ erkennen (Rückblick/Ausblick/Feedback/Probezeit)
+    - PN & Namen aus Dateiname oder SAP ableiten
+    - Zielname bilden
+    - Datei verschieben
+    Gibt Liste mit Log-Einträgen zurück.
+    """
+    results = []
+    in_dir = Path(in_dir)
+    out_root = Path(out_root)
+
+    for pdf_path in in_dir.glob("*.pdf"):
+        fname = pdf_path.name
+        norm = _normalize(fname)
+        target_dir = out_root / "robot_input"
+        target_name = None
+        status = "ok"
+        typ = None
+
+        try:
+            # Typ bestimmen
+            if "ruckblick" in norm:
+                typ = "Rückblick"
+            elif "ausblick" in norm:
+                typ = "Ausblick"
+            elif "feedback" in norm:
+                typ = "Feedback"
+            elif "probezeit" in norm:
+                typ = "Probezeit"
+                target_dir = out_root / "ruecklauf_probezeit"
+
+            # PN aus Dateiname ziehen (erste Zahl im String)
+            digits = "".join(ch if ch.isdigit() else " " for ch in fname).split()
+            pn = digits[0] if digits else ""
+
+            if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
+                row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
+                nachname, vorname = row["Nachname"], row["Rufname"]
+
+                if typ in ("Rückblick", "Ausblick"):
+                    jahr = pd.Timestamp.today().year
+                    target_name = f"{nachname}_{vorname}_{typ}_{jahr}_{pn}.pdf"
+
+                elif typ == "Feedback":
+                    target_name = f"Vorlage_Feedback_an_{nachname}_{vorname}_{pn}.pdf"
+
+                elif typ == "Probezeit":
+                    target_name = f"{nachname}_{vorname}_Probezeit_{pn}.pdf"
+            else:
+                status = "manuell"
+                target_dir = out_root / "manuell"
+
+            # Zielpfad festlegen
+            target_dir.mkdir(parents=True, exist_ok=True)
+            if target_name:
+                dest = target_dir / target_name
+            else:
+                dest = target_dir / fname
+
+            # Duplikate behandeln
+            counter = 1
+            while dest.exists():
+                stem, ext = dest.stem, dest.suffix
+                dest = target_dir / f"{stem}_{counter}{ext}"
+                counter += 1
+
+            shutil.move(str(pdf_path), dest)
+
+            results.append({
+                "file": fname,
+                "typ": typ,
+                "pn": pn,
+                "target": str(dest),
+                "status": status
+            })
+
+        except Exception as e:
+            results.append({
+                "file": fname,
+                "typ": typ,
+                "pn": "",
+                "target": "",
+                "status": f"error: {e}"
+            })
+            (out_root / "manuell").mkdir(parents=True, exist_ok=True)
+            shutil.move(str(pdf_path), (out_root / "manuell" / fname))
+
+    return results
