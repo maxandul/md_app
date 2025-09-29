@@ -655,9 +655,10 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 typ = "Probezeit"
                 target_dir = out_root / "ruecklauf_probezeit"
 
-            # PN aus Dateiname ziehen (erste Zahl im String)
-            digits = "".join(ch if ch.isdigit() else " " for ch in fname).split()
-            pn = digits[0] if digits else ""
+            # PN aus Dateiname ziehen (6-stellige Zahl, meist am Ende)
+            # Sucht nach 6-stelligen Zahlen, isoliert oder mit _ davor/danach
+            pn_match = re.search(r'(?:^|_)(\d{6})(?:_|\.|$)', fname)
+            pn = pn_match.group(1) if pn_match else ""
 
             if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
                 row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
@@ -674,7 +675,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     target_name = f"{nachname}_{vorname}_Probezeit_{pn}.pdf"
             else:
                 status = "manuell"
-                target_dir = out_root / "ruecklauf" / "manuell"  # Korrigiert: ruecklauf/manuell
+                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
 
             # Zielpfad festlegen
             target_dir.mkdir(parents=True, exist_ok=True)
@@ -692,7 +693,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
                     status = "manuell"
-                    target_dir = out_root / "ruecklauf" / "manuell"
+                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -716,7 +717,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
                     if is_duplicate:
                         status = "manuell"
-                        target_dir = out_root / "ruecklauf" / "manuell"
+                        target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(pdf_path), dest)
@@ -734,7 +735,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 else:
                     # Keine SAP-Daten gefunden
                     status = "manuell"
-                    target_dir = out_root / "ruecklauf" / "manuell"
+                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -798,8 +799,9 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "target": "",
                 "extras": {"all_tags": {}}
             })
-            (out_root / "ruecklauf" / "manuell").mkdir(parents=True, exist_ok=True)  # Korrigiert: ruecklauf/manuell
-            shutil.move(str(pdf_path), (out_root / "ruecklauf" / "manuell" / fname))
+            manuell_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+            manuell_dir.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(pdf_path), (manuell_dir / fname))
 
     # Logging nach ruecklauf/logs/processing_log.csv
     if durchlauf_jahr is not None:
