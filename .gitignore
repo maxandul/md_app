@@ -32,6 +32,11 @@ Beliebige/
 ~$*.docx
 ~$*.xlsx
 
+# Office-Dokumente allgemein (nicht in Git verfolgen)
+*.docx
+*.xlsx
+*.pdf
+
 # Build/Dist
 dist/
 build/

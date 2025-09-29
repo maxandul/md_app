@@ -83,8 +83,9 @@ def _manager_fields(vg_pn: str, managers: dict | None):
     vg_name, vg_email = "", ""
     if managers and vg_pn in managers:
         vg_row = managers[vg_pn]["manager"]
-        vg_name = f"{str(vg_row.get('Rufname','')).strip()} {str(vg_row.get('Nachname','')).strip()}".strip()
-        vg_email = str(vg_row.get("lange ID/Nummer","")).strip()
+        if vg_row is not None:  # Schutz vor NoneType Fehler
+            vg_name = f"{str(vg_row.get('Rufname','')).strip()} {str(vg_row.get('Nachname','')).strip()}".strip()
+            vg_email = str(vg_row.get("lange ID/Nummer","")).strip()
     return vg_name, vg_email
 
 def row_to_context(row, typ: str, managers: dict | None = None) -> dict:
@@ -116,6 +117,7 @@ def row_to_context(row, typ: str, managers: dict | None = None) -> dict:
             "rb_pn": pn,
             "rb_oe": oe,
             "rb_pn_vg": vg_pn,
+            "rb_nebenbeschaeftigung": get("Bewilligung für"),
         }
 
     if typ == "Rückblick_Probezeit":  # pz_*

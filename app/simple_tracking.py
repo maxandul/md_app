@@ -212,6 +212,40 @@ class SimpleTrackingSystem:
         """Speichert die Log-CSV."""
         df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
     
+    def check_duplicate(self, filename: str, pn: str, doc_type: str = None) -> tuple[bool, str]:
+        """
+        Prüft ob ein spezifisches Dokument bereits verarbeitet wurde (Duplikat-Check).
+        
+        Args:
+            filename: Name der Datei
+            pn: Personalnummer
+            doc_type: Dokumenttyp ("Rückblick Word", "Rückblick PDF", "Ausblick Word", "Ausblick PDF")
+            
+        Returns:
+            (is_duplicate: bool, warning: str)
+        """
+        df = self._load_log()
+        if df.empty:
+            return False, ""
+        
+        # Konvertiere ma_pn zu String und entferne .0
+        ma_pn_str = df["ma_pn"].astype(str).str.replace('.0', '', regex=False)
+        
+        # Prüfe spezifischen Dokumenttyp falls angegeben
+        if doc_type:
+            duplicate_mask = (ma_pn_str == str(pn)) & (df["doc_type"] == doc_type)
+            if duplicate_mask.any():
+                return True, f"PN {pn} - {doc_type} bereits verarbeitet"
+        else:
+            # Fallback: Prüfe ob überhaupt schon ein Eintrag für diese PN existiert
+            duplicate_mask = (ma_pn_str == str(pn))
+            if duplicate_mask.any():
+                duplicate_entries = df[duplicate_mask]
+                doc_types = duplicate_entries["doc_type"].unique().tolist()
+                return True, f"PN {pn} bereits verarbeitet: {', '.join(doc_types)}"
+        
+        return False, ""
+
     def _append_to_csv(self, entry: Dict) -> None:
         """Fügt einen Eintrag zur CSV hinzu."""
         file_exists = self.log_path.exists()

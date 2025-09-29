@@ -155,8 +155,9 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            # Duplikat-Erkennung
-            is_duplicate, warning = tracking.check_duplicate(p.name, pn)
+            # Duplikat-Erkennung - spezifisch für Rückblick Word
+            doc_type = "Rückblick Word"
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type)
             if is_duplicate:
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -195,8 +196,9 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            # Duplikat-Erkennung
-            is_duplicate, warning = tracking.check_duplicate(p.name, pn)
+            # Duplikat-Erkennung - spezifisch für Ausblick Word
+            doc_type = "Ausblick Word"
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type)
             if is_duplicate:
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
