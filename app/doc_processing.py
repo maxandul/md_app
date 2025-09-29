@@ -675,7 +675,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     target_name = f"{nachname}_{vorname}_Probezeit_{pn}.pdf"
             else:
                 status = "manuell"
-                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
 
             # Zielpfad festlegen
             target_dir.mkdir(parents=True, exist_ok=True)
