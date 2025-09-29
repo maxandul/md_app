@@ -601,6 +601,11 @@ class App(tk.Tk):
                 
                 # Tracking: Logge Versand für jeden Mitarbeiter
                 mgr_name = f"{mgr.get('Rufname','')} {mgr.get('Nachname','')}"
+                
+                # Erst: Feedback einmal pro Vorgesetzten loggen
+                self.tracking.log_feedback_for_manager(vg_pn, mgr_name, rb_year, self.mgr_index)
+                
+                # Dann: Dokumente pro Mitarbeiter loggen
                 for _, emp in subs.iterrows():
                     emp_pn = str(emp.get("ID_NO_ZERO", "")).strip()
                     emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
@@ -623,7 +628,7 @@ class App(tk.Tk):
                             if month in [10, 11, 12, 1]:
                                 doc_types.append("rueckblick_probezeit")
                     
-                    # Logge Versand
+                    # Logge Versand (ohne Feedback, da bereits oben geloggt)
                     self.tracking.log_versand(
                         mgr_pn=vg_pn,
                         mgr_name=mgr_name,
@@ -631,7 +636,8 @@ class App(tk.Tk):
                         emp_name=emp_name,
                         doc_types=doc_types,
                         rb_year=rb_year,
-                        ab_year=ab_year
+                        ab_year=ab_year,
+                        include_feedback=False
                     )
                 
             except Exception as e:
@@ -703,11 +709,17 @@ class App(tk.Tk):
             
             # Tracking: Logge Versand für jeden ausgewählten Mitarbeiter
             mgr_name = f"{mgr.get('Rufname','')} {mgr.get('Nachname','')}"
+            
+            # Erst: Feedback einmal pro Vorgesetzten loggen (nur wenn Feedback ausgewählt)
+            if "Feedback" in types:
+                self.tracking.log_feedback_for_manager(vg_pn, mgr_name, rb_year, self.mgr_index)
+            
+            # Dann: Dokumente pro Mitarbeiter loggen
             for _, emp in subs_filtered.iterrows():
                 emp_pn = str(emp.get("ID_NO_ZERO", "")).strip()
                 emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
                 
-                # Konvertiere UI-Typen zu internen Typen
+                # Konvertiere UI-Typen zu internen Typen (ohne Feedback)
                 doc_types = []
                 for ui_type in types:
                     if ui_type == "Rückblick":
@@ -716,8 +728,9 @@ class App(tk.Tk):
                         doc_types.append("ausblick")
                     elif ui_type == "Rückblick_Probezeit":
                         doc_types.append("rueckblick_probezeit")
+                    # Feedback wird separat oben geloggt
                 
-                # Logge Versand
+                # Logge Versand (ohne Feedback)
                 self.tracking.log_versand(
                     mgr_pn=vg_pn,
                     mgr_name=mgr_name,
@@ -725,7 +738,8 @@ class App(tk.Tk):
                     emp_name=emp_name,
                     doc_types=doc_types,
                     rb_year=rb_year,
-                    ab_year=ab_year
+                    ab_year=ab_year,
+                    include_feedback=False
                 )
             
         except Exception as e:
@@ -1216,6 +1230,12 @@ class App(tk.Tk):
         cols = ["Log-ID", "VG PN", "VG Name", "MA PN", "MA Name", "Dokument-Typ", "Erwartet", "Erhalten", "Status", "Status Grund", "Versendet am", "Zuletzt erinnert am"]
         self.tree_dashboard = ttk.Treeview(self.frame_dashboard, columns=cols, show="headings", height=15)
         
+        # Status-Farben definieren (leichte Farben)
+        self.tree_dashboard.tag_configure("status_ausstehend", background="#ffebee")    # Sehr helles Rot
+        self.tree_dashboard.tag_configure("status_erhalten", background="#e8f5e8")     # Sehr helles Grün
+        self.tree_dashboard.tag_configure("status_eruobrigt", background="#e8f5e8")    # Sehr helles Grün (wie erhalten)
+        self.tree_dashboard.tag_configure("status_pruefung_noetig", background="#fff3e0")  # Sehr helles Orange
+        
         for c in cols:
             self.tree_dashboard.heading(c, text=c)
             if c in ["Log-ID", "VG PN", "MA PN"]:
@@ -1238,6 +1258,21 @@ class App(tk.Tk):
         
         # Initial load
         self.on_refresh_dashboard()
+    
+    def _get_status_tag(self, status: str) -> str:
+        """Bestimmt den Farb-Tag basierend auf dem Status."""
+        status_lower = str(status).lower().strip()
+        
+        if status_lower == "ausstehend":
+            return "status_ausstehend"
+        elif status_lower == "erhalten":
+            return "status_erhalten"
+        elif status_lower == "erübrigt":
+            return "status_eruobrigt"
+        elif status_lower == "prüfung_nötig":
+            return "status_pruefung_noetig"
+        else:
+            return ""  # Keine Farbe für unbekannte Status
     
     def on_refresh_dashboard(self):
         """Lädt Dashboard-Daten neu"""
@@ -1264,20 +1299,31 @@ class App(tk.Tk):
             
             # Daten in Treeview einfügen
             for _, row in df.iterrows():
-                self.tree_dashboard.insert("", "end", values=(
-                    row.get("log_id", ""),
-                    row.get("vg_pn", ""),
-                    row.get("vg_name", ""),
-                    row.get("ma_pn", ""),
-                    row.get("ma_name", ""),
-                    row.get("doc_type", ""),
-                    row.get("erwartet", ""),
-                    row.get("erhalten", ""),
-                    row.get("status", ""),
-                    row.get("status_grund", ""),
-                    row.get("versendet_am", ""),
-                    row.get("zuletzt_erinnert_am", "")
-                ))
+                # Hilfsfunktion um NaN-Werte zu leeren Strings zu konvertieren
+                def safe_value(val):
+                    if pd.isna(val) or val == "nan" or val == "NaN":
+                        return ""
+                    return str(val) if val is not None else ""
+                
+                # Status für Farb-Tag bestimmen
+                status = safe_value(row.get("status", ""))
+                status_tag = self._get_status_tag(status)
+                
+                # Eintrag mit Farb-Tag einfügen
+                item_id = self.tree_dashboard.insert("", "end", values=(
+                    safe_value(row.get("log_id", "")),
+                    safe_value(row.get("vg_pn", "")),
+                    safe_value(row.get("vg_name", "")),
+                    safe_value(row.get("ma_pn", "")),
+                    safe_value(row.get("ma_name", "")),
+                    safe_value(row.get("doc_type", "")),
+                    safe_value(row.get("erwartet", "")),
+                    safe_value(row.get("erhalten", "")),
+                    safe_value(row.get("status", "")),
+                    safe_value(row.get("status_grund", "")),
+                    safe_value(row.get("versendet_am", "")),
+                    safe_value(row.get("zuletzt_erinnert_am", ""))
+                ), tags=(status_tag,) if status_tag else ())
                 
         except Exception as e:
             messagebox.showerror("Fehler", f"Fehler beim Laden der Dashboard-Daten: {e}")

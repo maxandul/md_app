@@ -155,15 +155,22 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            # Duplikat-Erkennung - spezifisch für Rückblick Word
+            # VG-PN aus Tags extrahieren
+            vg_pn = (tags.get("rb_pn_vg") or "").strip()
+            
+            # Duplikat-Erkennung - spezifisch für Rückblick Word mit VG-PN
             doc_type = "Rückblick Word"
-            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type)
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type, vg_pn)
             if is_duplicate:
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
+            
+            # Status im Tracking-System auf "erhalten" setzen
+            if vg_pn:
+                tracking.mark_received(vg_pn, pn, "Rückblick Word")
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -196,15 +203,22 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            # Duplikat-Erkennung - spezifisch für Ausblick Word
+            # VG-PN aus Tags extrahieren
+            vg_pn = (tags.get("ab_pn_vg") or "").strip()
+            
+            # Duplikat-Erkennung - spezifisch für Ausblick Word mit VG-PN
             doc_type = "Ausblick Word"
-            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type)
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type, vg_pn)
             if is_duplicate:
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
+            
+            # Status im Tracking-System auf "erhalten" setzen
+            if vg_pn:
+                tracking.mark_received(vg_pn, pn, "Ausblick Word")
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
