@@ -354,6 +354,14 @@ class App(tk.Tk):
         ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: self.on_send_managers(mode="display")).pack(side="left", padx=(8,0))
         ttk.Button(btn_frame, text="Vorschau generieren", command=self.on_preview_managers).pack(side="left", padx=(8,0))
 
+        # Fortschritt
+        prog_frame = ttk.Frame(self.frame_massenversand)
+        prog_frame.grid(row=4, column=0, columnspan=6, sticky="ew", padx=8, pady=(0,8))
+        self.ms_progress = ttk.Progressbar(prog_frame, orient="horizontal", length=300, mode="determinate")
+        self.ms_progress.pack(side="left")
+        self.ms_status = ttk.Label(prog_frame, text="Bereit.", foreground="gray")
+        self.ms_status.pack(side="left", padx=(8,0))
+
         # Grid-Konfiguration
         self.frame_massenversand.grid_columnconfigure(0, weight=1)
         self.frame_massenversand.grid_rowconfigure(2, weight=1)
@@ -442,6 +450,14 @@ class App(tk.Tk):
         ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: self.on_send_selected_employees(mode="send")).pack(side="left")
         ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: self.on_send_selected_employees(mode="display")).pack(side="left", padx=(8,0))
         ttk.Button(btn_frame, text="Vorschau generieren", command=self.on_preview_selected).pack(side="left", padx=(8,0))
+
+        # Fortschritt
+        prog_frame_e = ttk.Frame(self.frame_einzelversand)
+        prog_frame_e.grid(row=7, column=0, columnspan=6, sticky="ew", padx=8, pady=(0,8))
+        self.es_progress = ttk.Progressbar(prog_frame_e, orient="horizontal", length=300, mode="indeterminate")
+        self.es_progress.pack(side="left")
+        self.es_status = ttk.Label(prog_frame_e, text="Bereit.", foreground="gray")
+        self.es_status.pack(side="left", padx=(8,0))
 
         # Grid-Konfiguration
         self.frame_einzelversand.grid_columnconfigure(0, weight=1)
@@ -574,19 +590,44 @@ class App(tk.Tk):
         out_root = Path(__file__).parent.parent / "tracking" / "versand"
         out_root.mkdir(parents=True, exist_ok=True)
 
+        # Fortschritt initialisieren
+        try:
+            total = len(sel)
+        except Exception:
+            total = 0
+        if hasattr(self, "ms_progress"):
+            self.ms_progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+            self.ms_status.config(text="Starte Versand...", foreground="black")
+            self.update_idletasks()
+
         errors = []
+        done = 0
         for vg_pn in sel:
             pack = self.mgr_index.get(vg_pn)
             if not pack:
                 errors.append(f"Kein Paket für VG_PN {vg_pn}")
+                done += 1
+                if hasattr(self, "ms_progress"):
+                    self.ms_progress['value'] = done
+                    self.ms_status.config(text=f"{done}/{total}: Paket fehlt für {vg_pn}")
+                    self.update_idletasks()
                 continue
             mgr = pack["manager"]
             subs = pack["subs"]
             if mgr is None:
                 errors.append(f"Vorgesetzte/r mit PN {vg_pn} nicht in EXPORT.xlsx gefunden.")
+                done += 1
+                if hasattr(self, "ms_progress"):
+                    self.ms_progress['value'] = done
+                    self.ms_status.config(text=f"{done}/{total}: Datensatz fehlt für {vg_pn}")
+                    self.update_idletasks()
                 continue
 
             try:
+                if hasattr(self, "ms_progress"):
+                    mgr_name_lbl = f"{mgr.get('Rufname','')} {mgr.get('Nachname','')}".strip()
+                    self.ms_status.config(text=f"{done+1}/{total}: Erzeuge & versende an {mgr_name_lbl}...")
+                    self.update_idletasks()
                 build_and_send_for_manager(
                     mgr_row=mgr,
                     subs_df=subs,
@@ -642,11 +683,21 @@ class App(tk.Tk):
                 
             except Exception as e:
                 errors.append(f"{mgr.get('Rufname','')} {mgr.get('Nachname','')} ({vg_pn}): {e}")
+            finally:
+                done += 1
+                if hasattr(self, "ms_progress"):
+                    self.ms_progress['value'] = done
+                    self.update_idletasks()
 
         if errors:
             messagebox.showerror("Abschluss mit Fehlern", "\n".join(errors))
         else:
             messagebox.showinfo("Fertig", "Versand ausgefuehrt (siehe Outbox/gesendete Elemente).")
+
+        # Fortschritt abschließen
+        if hasattr(self, "ms_progress"):
+            self.ms_status.config(text="Bereit.", foreground="gray")
+            self.ms_progress['value'] = 0
 
     def on_send_selected_employees(self, mode: str = None):
         sel_mgrs = self.tree_einzel.selection()
@@ -694,6 +745,12 @@ class App(tk.Tk):
 
         mgr = pack["manager"]
         try:
+            # Fortschritt starten (unklarer Umfang → indeterminiert)
+            if hasattr(self, "es_progress"):
+                self.es_progress.configure(mode="indeterminate")
+                self.es_progress.start(50)
+                self.es_status.config(text="Erzeuge & versende...", foreground="black")
+                self.update_idletasks()
             build_and_send_for_manager(
                 mgr_row=mgr,
                 subs_df=subs_filtered,
@@ -746,6 +803,14 @@ class App(tk.Tk):
             messagebox.showerror("Fehler", str(e))
             return
 
+        finally:
+            if hasattr(self, "es_progress"):
+                try:
+                    self.es_progress.stop()
+                except Exception:
+                    pass
+                self.es_status.config(text="Bereit.", foreground="gray")
+
         messagebox.showinfo("Fertig", "Unterlagen erzeugt und E-Mail vorbereitet/gesendet.")
 
     # ---------------------------
@@ -778,13 +843,21 @@ class App(tk.Tk):
         entry_target = ttk.Entry(toolbar, textvariable=self.inbox_target_var, width=60)
         entry_target.pack(side="left", padx=(0,8))
 
+        # Fortschritt für Maileingang (indeterminiert)
+        prog_frame_inbox = ttk.Frame(self.frame_ruecklauf)
+        prog_frame_inbox.grid(row=1, column=0, columnspan=6, sticky="ew", padx=8, pady=(0, 4))
+        self.inbox_progress = ttk.Progressbar(prog_frame_inbox, orient="horizontal", length=300, mode="indeterminate")
+        self.inbox_progress.pack(side="left")
+        self.inbox_status = ttk.Label(prog_frame_inbox, text="Bereit.", foreground="gray")
+        self.inbox_status.pack(side="left", padx=(8,0))
+
         # Status-Zeile
         self.ruecklauf_status = ttk.Label(self.frame_ruecklauf, text="Noch kein Scan durchgeführt.", foreground="gray")
-        self.ruecklauf_status.grid(row=1, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
+        self.ruecklauf_status.grid(row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
         # Notebook für Ergebnislisten
         self.ruecklauf_nb = ttk.Notebook(self.frame_ruecklauf)
-        self.ruecklauf_nb.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
+        self.ruecklauf_nb.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
 
         # Tabs
         self.tab_ok = ttk.Frame(self.ruecklauf_nb)
@@ -810,7 +883,7 @@ class App(tk.Tk):
         self.tree_skip = self._make_tree(self.tab_skip, ["Absender", "Betreff", "Grund"])
 
         # Layout-Weights
-        self.frame_ruecklauf.grid_rowconfigure(2, weight=1)
+        self.frame_ruecklauf.grid_rowconfigure(3, weight=1)
         self.frame_ruecklauf.grid_columnconfigure(5, weight=1)
 
 
@@ -839,6 +912,16 @@ class App(tk.Tk):
             for i in t.get_children():
                 t.delete(i)
 
+        # Fortschritt starten
+        if hasattr(self, "inbox_progress"):
+            try:
+                self.inbox_progress.configure(mode="indeterminate")
+                self.inbox_progress.start(50)
+            except Exception:
+                pass
+            self.inbox_status.config(text="Scan läuft...", foreground="black")
+            self.update_idletasks()
+
         outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         mailbox = outlook.Folders["VD-GS HR"]
         inbox = mailbox.Folders["Posteingang"]
@@ -847,6 +930,8 @@ class App(tk.Tk):
         md_keywords = ["rückblick", "rueckblick", "ausblick", "feedback"]
         kw_probezeit = "probezeit"
         allowed_exts = [".docx", ".pdf"]
+        # Dateierweiterungen die in E-Mail-Signaturen verwendet werden (ignorieren)
+        signature_exts = [".jpeg", ".jpg", ".png", ".gif", ".bmp", ".tiff", ".svg", ".ico", ".webp"]
 
         base_path = Path(self.inbox_target_var.get())
         base_path.mkdir(parents=True, exist_ok=True)
@@ -877,7 +962,9 @@ class App(tk.Tk):
             # Klassifizieren
             md_files = [f for f, _ in files if any(k in f.lower() for k in md_keywords) and os.path.splitext(f)[1].lower() in allowed_exts]
             probezeit_files = [f for f, _ in files if kw_probezeit in f.lower() and os.path.splitext(f)[1].lower() in allowed_exts]
-            other_files = [f for f, _ in files if f not in md_files and f not in probezeit_files]
+            # Signatur-Dateien ignorieren (nicht als "fremde Anhänge" zählen)
+            signature_files = [f for f, _ in files if os.path.splitext(f)[1].lower() in signature_exts]
+            other_files = [f for f, _ in files if f not in md_files and f not in probezeit_files and f not in signature_files]
 
             if md_files and not probezeit_files and not other_files:
                 # Sauber → kopieren & verschieben
@@ -923,10 +1010,26 @@ class App(tk.Tk):
                 self.tree_skip.insert("", "end", values=[sender, subject, "Keine MD-Anhänge"])
                 skipped += 1
 
+            # Fortschritt-Status aktualisieren (indeterminiert)
+            if hasattr(self, "inbox_status"):
+                try:
+                    self.inbox_status.config(text=f"Scan läuft... geprüft: {found} • kopiert: {copied} • verschoben: {moved} • prüfen: {to_check} • übersprungen: {skipped}")
+                    self.update_idletasks()
+                except Exception:
+                    pass
+
         self.ruecklauf_status.config(
             text=f"Scan abgeschlossen: {found} Mails • {copied} Anhänge kopiert • {moved} verschoben • {to_check} prüfen • {skipped} übersprungen",
             foreground="black"
         )
+
+        # Fortschritt stoppen
+        if hasattr(self, "inbox_progress"):
+            try:
+                self.inbox_progress.stop()
+            except Exception:
+                pass
+            self.inbox_status.config(text="Bereit.", foreground="gray")
 
     def _get_sender_address(self, mail):
         """Versucht, eine saubere SMTP-Adresse für den Absender zurückzugeben."""
