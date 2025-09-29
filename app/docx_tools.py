@@ -33,9 +33,29 @@ def _is_empty_or_stop_content(text: str) -> bool:
     - Leerzeichen
     - Tabs
     - Zeilenumbrüchen
+    - Spezifische Platzhalter-Texte
     """
     if not text:
         return True
+    
+    # Spezifische Platzhalter-Texte ignorieren
+    stop_phrases = [
+        "Bitte wählen.",
+        "Bitte wählen",
+        "Datum",
+        "dd.mm.yyyy",
+        "MM/DD/YYYY",
+        "TT.MM.JJJJ",
+        "Bitte auswählen",
+        "Bitte auswählen.",
+        "Auswählen",
+        "Wählen"
+    ]
+    
+    text_normalized = text.strip()
+    for phrase in stop_phrases:
+        if phrase.lower() in text_normalized.lower():
+            return True
     
     # Entferne alle Stoppzeichen und prüfe ob etwas übrig bleibt
     cleaned = text.replace('\u00A0', '')  # Geschütztes Leerzeichen

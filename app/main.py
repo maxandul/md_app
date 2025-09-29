@@ -996,25 +996,48 @@ class App(tk.Tk):
         self.proc_status = ttk.Label(self.frame_verarbeitung, text="Noch kein Lauf.", foreground="gray")
         self.proc_status.grid(row=1, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
+        # Überschrift und Erklärung für DOCX-Verarbeitung
+        ttk.Label(self.frame_verarbeitung, text="DOCX-Dokumente (Word-Vorlagen):", 
+                 font=("TkDefaultFont", 10, "bold")).grid(row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4))
+        
+        docx_info = ttk.Label(self.frame_verarbeitung, 
+                             text="Verarbeitete Word-Dokumente mit extrahierten Steuerelement-Inhalten. Status zeigt ob Dokument korrekt verarbeitet wurde oder manuelle Prüfung benötigt.",
+                             foreground="gray", wraplength=800)
+        docx_info.grid(row=3, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
+
         # Ergebnis-Tabelle DOCX
         cols = ["Datei", "Typ", "PN", "Name", "Status", "Grund", "Gesamteindruck (RB)"]
         self.tree_proc = ttk.Treeview(self.frame_verarbeitung, columns=cols, show="headings", height=12)
         for c in cols:
             self.tree_proc.heading(c, text=c)
             self.tree_proc.column(c, width=180 if c not in ("Datei", "Grund") else 260, anchor="w")
-        self.tree_proc.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
+        self.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
 
-        # Ergebnis-Tabelle PDFs
-        pdf_cols = ["Datei", "Typ", "PN", "Ziel", "Status"]
+        # Überschrift und Erklärung für PDF-Verarbeitung
+        ttk.Label(self.frame_verarbeitung, text="PDF-Dokumente (eingescannte/konvertierte Dokumente):", 
+                 font=("TkDefaultFont", 10, "bold")).grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4))
+        
+        pdf_info = ttk.Label(self.frame_verarbeitung, 
+                            text="Verarbeitete PDF-Dokumente basierend auf Dateiname. Bei Mehrfachanstellungen ist manuelle Prüfung erforderlich. Ziel zeigt wohin Datei verschoben wurde.",
+                            foreground="gray", wraplength=800)
+        pdf_info.grid(row=6, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
+
+        # Ergebnis-Tabelle PDFs (gleiche Spalten wie DOCX für Konsistenz)
+        pdf_cols = ["Datei", "Typ", "PN", "Name", "Status", "Grund", "Ziel"]
         self.tree_pdfs = ttk.Treeview(self.frame_verarbeitung, columns=pdf_cols, show="headings", height=6)
         for c in pdf_cols:
             self.tree_pdfs.heading(c, text=c)
-            self.tree_pdfs.column(c, width=200 if c == "Ziel" else 140, anchor="w")
-        self.tree_pdfs.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 8))
+            if c == "Ziel":
+                self.tree_pdfs.column(c, width=200, anchor="w")
+            elif c in ["PN", "Status"]:
+                self.tree_pdfs.column(c, width=100, anchor="w")
+            else:
+                self.tree_pdfs.column(c, width=140, anchor="w")
+        self.tree_pdfs.grid(row=7, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 8))
 
         # Grid-Konfiguration
-        self.frame_verarbeitung.grid_rowconfigure(2, weight=3)  # DOCX-Tabelle größer
-        self.frame_verarbeitung.grid_rowconfigure(3, weight=1)  # PDFs kleiner
+        self.frame_verarbeitung.grid_rowconfigure(4, weight=3)  # DOCX-Tabelle größer
+        self.frame_verarbeitung.grid_rowconfigure(7, weight=1)  # PDFs kleiner
         self.frame_verarbeitung.grid_columnconfigure(5, weight=1)
     def _default_proc_year(self) -> int:
         today = date.today()
@@ -1147,14 +1170,16 @@ class App(tk.Tk):
         for item in self.tree_pdfs.get_children():
             self.tree_pdfs.delete(item)
 
-        # Ergebnisse einfüllen
+        # Ergebnisse einfüllen (konsistent mit DOCX-Anzeige)
         for r in results:
             self.tree_pdfs.insert("", "end", values=(
                 r.get("file", ""),
                 r.get("typ", ""),
                 r.get("pn", ""),
-                r.get("target", ""),
-                r.get("status", "")
+                r.get("name", ""),
+                r.get("status", ""),
+                r.get("reason", ""),
+                r.get("target", "")
             ))
 
         from tkinter import messagebox

@@ -674,7 +674,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     target_name = f"{nachname}_{vorname}_Probezeit_{pn}.pdf"
             else:
                 status = "manuell"
-                target_dir = out_root / "manuell"
+                target_dir = out_root / "ruecklauf" / "manuell"  # Korrigiert: ruecklauf/manuell
 
             # Zielpfad festlegen
             target_dir.mkdir(parents=True, exist_ok=True)
@@ -685,10 +685,14 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             # Duplikat-Erkennung (nur für Rückblick/Ausblick)
             if typ in ("Rückblick", "Ausblick") and pn:
-                is_duplicate, warning = tracking.check_duplicate(fname, pn)
-                if is_duplicate:
+                # Prüfe auf Mehrfachanstellungen
+                matching_rows = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn]
+                anzahl_anstellungen = len(matching_rows)
+                
+                if anzahl_anstellungen > 1:
+                    # Mehrfachanstellung: Manuelle Prüfung erforderlich
                     status = "manuell"
-                    target_dir = out_root / "manuell"
+                    target_dir = out_root / "ruecklauf" / "manuell"
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -696,8 +700,53 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         "file": fname,
                         "typ": typ,
                         "pn": pn,
+                        "name": f"{matching_rows.iloc[0].get('Rufname','')} {matching_rows.iloc[0].get('Nachname','')}".strip(),
+                        "status": "manuell",
+                        "reason": f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden - manuelle Zuordnung erforderlich",
                         "target": str(dest),
-                        "status": f"Duplikat: {warning}"
+                        "extras": {"all_tags": {}, "anzahl_anstellungen": anzahl_anstellungen}
+                    })
+                    continue
+                elif anzahl_anstellungen == 1:
+                    # Einzelanstellung: Normale Duplikat-Prüfung
+                    row = matching_rows.iloc[0]
+                    vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
+                    
+                    doc_type = f"{typ} PDF"
+                    is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
+                    if is_duplicate:
+                        status = "manuell"
+                        target_dir = out_root / "ruecklauf" / "manuell"
+                        dest = target_dir / fname
+                        target_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(pdf_path), dest)
+                        results.append({
+                            "file": fname,
+                            "typ": typ,
+                            "pn": pn,
+                            "name": f"{row.get('Rufname','')} {row.get('Nachname','')}".strip(),
+                            "status": "manuell",
+                            "reason": f"Duplikat: {warning}",
+                            "target": str(dest),
+                            "extras": {"all_tags": {}}
+                        })
+                        continue
+                else:
+                    # Keine SAP-Daten gefunden
+                    status = "manuell"
+                    target_dir = out_root / "ruecklauf" / "manuell"
+                    dest = target_dir / fname
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(pdf_path), dest)
+                    results.append({
+                        "file": fname,
+                        "typ": typ,
+                        "pn": pn,
+                        "name": "",
+                        "status": "manuell",
+                        "reason": "PN nicht in SAP-Daten gefunden",
+                        "target": str(dest),
+                        "extras": {"all_tags": {}}
                     })
                     continue
 
@@ -710,24 +759,47 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             shutil.move(str(pdf_path), dest)
 
+            # Name aus SAP-Daten ermitteln
+            name = ""
+            if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
+                row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
+                name = f"{row.get('Rufname','')} {row.get('Nachname','')}".strip()
+
+            # Tracking-System aktualisieren für erfolgreiche Verarbeitung
+            if status == "ok" and typ in ("Rückblick", "Ausblick") and pn:
+                # VG-PN ermitteln
+                vg_pn = ""
+                if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
+                    row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
+                    vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
+                
+                doc_type = f"{typ} PDF"
+                tracking.mark_received(vg_pn, pn, doc_type)
+
             results.append({
                 "file": fname,
                 "typ": typ,
                 "pn": pn,
+                "name": name,
+                "status": status,
+                "reason": "" if status == "ok" else "PN nicht in SAP-Daten gefunden" if not pn else "Unbekannter Fehler",
                 "target": str(dest),
-                "status": status
+                "extras": {"all_tags": {}}
             })
 
         except Exception as e:
             results.append({
                 "file": fname,
-                "typ": typ,
+                "typ": typ or "Unbekannt",
                 "pn": "",
+                "name": "",
+                "status": "manuell",
+                "reason": f"Fehler bei Verarbeitung: {e}",
                 "target": "",
-                "status": f"error: {e}"
+                "extras": {"all_tags": {}}
             })
-            (out_root / "manuell").mkdir(parents=True, exist_ok=True)
-            shutil.move(str(pdf_path), (out_root / "manuell" / fname))
+            (out_root / "ruecklauf" / "manuell").mkdir(parents=True, exist_ok=True)  # Korrigiert: ruecklauf/manuell
+            shutil.move(str(pdf_path), (out_root / "ruecklauf" / "manuell" / fname))
 
     # Logging nach ruecklauf/logs/processing_log.csv
     if durchlauf_jahr is not None:
