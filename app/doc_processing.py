@@ -3,6 +3,19 @@
 # ---------------------------
 
 # app/doc_processing.py
+"""
+Dokumentenverarbeitung für MD-Prozess
+
+Diese Module behandelt:
+- Verarbeitung von DOCX-Dokumenten (Rückblick/Ausblick)
+- Validierung gegen SAP-Stammdaten
+- Export für SAP-Massenupload und DS-System
+- PDF-Verarbeitung und -verteilung
+- Duplikat-Erkennung und Status-Tracking
+
+Autor: HR-Team
+Version: 1.0
+"""
 from __future__ import annotations
 from pathlib import Path
 import re
@@ -12,12 +25,19 @@ from typing import Dict, Any
 import shutil
 
 from .docx_tools import read_content_controls, detect_doc_type, map_rb_gesamteindruck
+from .simple_tracking import SimpleTrackingSystem
 
 # ---------------------------
 # Hilfsfunktionen
 # ---------------------------
 
 def _strip_accents(s: str) -> str:
+    """
+    Normalisiert Text für Namensvergleich.
+    
+    Entfernt Akzente, konvertiert zu Kleinbuchstaben,
+    normalisiert Leerzeichen und Bindestriche.
+    """
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.lower().strip()
@@ -26,16 +46,45 @@ def _strip_accents(s: str) -> str:
     return s
 
 def _name_matches(full_name_from_doc: str, sap_row: pd.Series) -> bool:
+    """
+    Vergleicht Namen aus Dokument mit SAP-Stammdaten.
+    
+    Args:
+        full_name_from_doc: Vollständiger Name aus DOCX-Tag
+        sap_row: SAP-Datensatz mit Rufname/Nachname
+        
+    Returns:
+        True wenn Namen übereinstimmen (normalisiert)
+    """
     doc = _strip_accents(full_name_from_doc)
     sap = _strip_accents(f"{sap_row.get('Rufname','')} {sap_row.get('Nachname','')}")
     return doc == sap
 
 def _pn_in_sap(pn: str, sap_index: dict[str, pd.Series]) -> pd.Series | None:
+    """
+    Sucht Personalnummer in SAP-Index.
+    
+    Args:
+        pn: Personalnummer zum Suchen
+        sap_index: Dictionary mit PN -> SAP-Datensatz
+        
+    Returns:
+        SAP-Datensatz oder None wenn nicht gefunden
+    """
     if not pn:
         return None
     return sap_index.get(str(pn))
 
 def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
+    """
+    Erstellt Index für schnelle PN-Suche in SAP-Daten.
+    
+    Args:
+        df: SAP-Stammdaten DataFrame
+        
+    Returns:
+        Dictionary mit PN -> SAP-Datensatz
+    """
     idx = {}
     for _, r in df.iterrows():
         pn = str(r.get("ID_NO_ZERO", "")).strip()
@@ -47,7 +96,7 @@ def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
 # Scannen & Plausibilisierung (Top-Level)
 # ---------------------------
 
-def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
+def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | None = None, durchlauf_jahr: int | None = None) -> list[dict]:
     """
     Scannt NUR *.docx direkt in input_dir (keine Unterordner),
     liest Tags mit python-docx, validiert gg. SAP und liefert eine Liste von Dicts:
@@ -55,8 +104,12 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
     """
     results: list[Dict[str, Any]] = []
     sap_idx = build_sap_index(sap_df)
+    tracking = SimpleTrackingSystem()
 
-    for p in sorted(input_dir.glob("*.docx")):  # nur Top-Level
+    docx_files = sorted(input_dir.glob("*.docx"))
+    if max_files is not None:
+        docx_files = docx_files[:max_files]
+    for p in docx_files:  # nur Top-Level
         try:
             tags = read_content_controls(p)
         except Exception as e:
@@ -102,6 +155,15 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
                 })
                 continue
 
+            # Duplikat-Erkennung
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn)
+            if is_duplicate:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
+                })
+                continue
+            
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
                 "status": "ok", "reason": "",
@@ -133,6 +195,15 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
                 })
                 continue
 
+            # Duplikat-Erkennung
+            is_duplicate, warning = tracking.check_duplicate(p.name, pn)
+            if is_duplicate:
+                results.append({
+                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
+                })
+                continue
+            
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
                 "status": "ok", "reason": "", "extras": {"all_tags": tags}
@@ -144,7 +215,66 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame) -> list[dict]:
                 "status": "manuell", "reason": "Dokumenttyp nicht erkannt (keine rb_/ab_-Tags)", "extras": {"all_tags": tags}
             })
 
+    # Logging nach ruecklauf/logs/processing_log.csv
+    if durchlauf_jahr is not None:
+        _append_processing_log(results, durchlauf_jahr)
+
     return results
+
+def _append_processing_log(results: list[dict], durchlauf_jahr: int):
+    """Append-Protokollierung nach ruecklauf/logs/processing_log.csv"""
+    from datetime import datetime
+    import csv
+    from pathlib import Path
+
+    log_dir = Path(__file__).parent.parent / "ruecklauf" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "processing_log.csv"
+
+    # CSV-Header falls neu
+    header = [
+        "timestamp", "durchlauf_jahr", "filename", "ext", "typ", "pn", "vg_pn",
+        "status", "action", "reason", "target_path", "source_folder"
+    ]
+
+    # Append-Modus
+    file_exists = log_file.exists()
+    with open(log_file, "a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f, delimiter=";")
+        if not file_exists:
+            writer.writerow(header)
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for r in results:
+            # Extrahiere PN/VG-PN aus Tags falls vorhanden
+            pn = ""
+            vg_pn = ""
+            if isinstance(r.get("extras"), dict):
+                tags = r.get("extras", {}).get("all_tags", {})
+                pn = str(tags.get("rb_pn", "") or tags.get("ab_pn", "") or "")
+                vg_pn = str(tags.get("rb_pn_vg", "") or tags.get("ab_pn_vg", "") or "")
+
+            # Bestimme action
+            action = "validated"
+            if r.get("status") == "ok":
+                action = "exported"
+            elif r.get("status") == "manuell":
+                action = "flagged_manual"
+
+            writer.writerow([
+                now,
+                durchlauf_jahr,
+                r.get("file", ""),
+                Path(r.get("file", "")).suffix.lower(),
+                r.get("typ", ""),
+                pn,
+                vg_pn,
+                r.get("status", ""),
+                action,
+                r.get("reason", ""),
+                r.get("target", ""),
+                "unverarbeitet"
+            ])
 
 # ---------------------------
 # Exports & Moves
@@ -192,8 +322,16 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
     gemäss Vorgabe (Beurteilungsart = '1', Datumslogik mit Eintritt/Austritt,
     Zeitraum-Felder an IT9075 geklemmt).
     """
-    # PN -> SAP-Zeile Index
-    sap_idx = {str(r.get("ID_NO_ZERO", "")).strip(): r for _, r in sap_df.iterrows()}
+    # PN -> Liste SAP-Zeilen Index (mehrere Anstellungen möglich)
+    def _norm_pn(s: str) -> str:
+        s = str(s or "").strip()
+        s = s.lstrip("0")
+        return s or "0"
+
+    sap_idx = {}
+    for _, r in sap_df.iterrows():
+        pn_key = _norm_pn(r.get("ID_NO_ZERO", ""))
+        sap_idx.setdefault(pn_key, []).append(r)
 
     def _d(s: str):
         if not s:
@@ -212,11 +350,30 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
         if not pn:
             continue
 
-        # SAP-Zeile + Eintritt/Austritt/Ans.
-        sap_row = sap_idx.get(pn)
-        eintritt = pd.to_datetime(sap_row.get("Eintritt"), errors="coerce") if sap_row is not None else pd.NaT
-        austritt = pd.to_datetime(sap_row.get("Austritt"), errors="coerce") if sap_row is not None else pd.NaT
-        ans = str(sap_row.get("Ans.", "") or "").strip() if sap_row is not None else ""
+        # SAP-Zeile wählen: erst PN + Vorgesetzter (PN) matchen, sonst Fallback auf PN
+        pn_key = _norm_pn(pn)
+        candidates = sap_idx.get(pn_key, [])
+
+        # VG-PN aus Dokument-Tags (nur Rückblick hier)
+        tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
+        vg_tag = str(tags.get("rb_pn_vg", "") or "").strip()
+        vg_key = _norm_pn(vg_tag)
+
+        chosen = None
+        if candidates and vg_key:
+            for row in candidates:
+                row_vg = _norm_pn(row.get("Dir. Vorgesetzter (PN)", ""))
+                if row_vg == vg_key:
+                    chosen = row
+                    break
+        if chosen is None and candidates:
+            # Fallback: nimm die erste Zeile zur PN, wenn kein VG-Match
+            chosen = candidates[0]
+
+        # Eintritt/Austritt/Ans. aus gewählter Zeile
+        eintritt = pd.to_datetime(chosen.get("Eintritt"), errors="coerce") if chosen is not None else pd.NaT
+        austritt = pd.to_datetime(chosen.get("Austritt"), errors="coerce") if chosen is not None else pd.NaT
+        ans = str(chosen.get("Ans.", "") or "").strip() if chosen is not None else ""
 
         # Dokument-Daten (Rückblick)
         doc_von = _d(tags.get("rb_datum_von", ""))
@@ -281,15 +438,39 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
 
     df_out = pd.DataFrame(rows, columns=SAP_COLS)
     out_xlsx.parent.mkdir(parents=True, exist_ok=True)
-    with pd.ExcelWriter(out_xlsx, engine="openpyxl", datetime_format="YYYY-MM-DD") as wr:
+    # Excel mit lokalem dd.mm.yyyy Zellformat
+    with pd.ExcelWriter(out_xlsx, engine="openpyxl") as wr:
         df_out.to_excel(wr, index=False, sheet_name="Massenupload")
+        ws = wr.sheets["Massenupload"]
+        date_cols = ["Beginndatum IT9075","Endedatum IT9075","Datum MAB","Beurteilungszeitraum von","Beurteilungszeitraum bis","Nächster Termin"]
+        from openpyxl.styles import numbers
+        fmt = numbers.BUILTIN_FORMATS[14]  # 'm/d/yy' Basis, wir überschreiben auf deutsches
+        for col_name in date_cols:
+            if col_name in SAP_COLS:
+                col_idx = SAP_COLS.index(col_name) + 1
+                for cell in ws.iter_cols(min_col=col_idx, max_col=col_idx, min_row=2):
+                    for c in cell:
+                        c.number_format = "DD.MM.YYYY"
 
 
-def export_ds_csv(results: list[dict], out_csv: Path):
+def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = None):
     """
     Breiter DS-Export: eine Zeile je Dokument, alle Tags (soweit vorhanden).
+    Erweitert um Hierarchie-Informationen aus SAP Stammdaten.
     """
     rows = []
+    
+    # Hierarchie-Informationen vorbereiten falls SAP-Daten verfügbar
+    hierarchy_data = {}
+    if sap_df is not None:
+        try:
+            from .org_structure import build_org_structure
+            org_df = build_org_structure(sap_df)
+            # Index für schnelle Suche nach PN
+            hierarchy_data = org_df.set_index("Personalnummer").to_dict("index")
+        except Exception as e:
+            print(f"Warnung: Hierarchie-Daten konnten nicht geladen werden: {e}")
+    
     for r in results:
         base = {
             "file": r.get("file", ""),
@@ -302,9 +483,53 @@ def export_ds_csv(results: list[dict], out_csv: Path):
         tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
         # flach mergen
         row = {**base, **tags}
+        
         # Extras, die interessant sind
         if r.get("typ") == "Rückblick":
             row["rb_gesamteindruck_code"] = (r.get("extras", {}) or {}).get("rb_gesamteindruck", "")
+        
+        # Hierarchie-Informationen hinzufügen
+        pn = r.get("pn", "")
+        if pn and pn in hierarchy_data:
+            h_data = hierarchy_data[pn]
+            
+            # Basis-Hierarchie-Informationen
+            base_hierarchy = {
+                "hierarchie_ebene": h_data.get("Hierarchie_Ebene", ""),
+                "oe_kurz": h_data.get("OE_Kurz", ""),
+                "oe_bez": h_data.get("OE_Bez", ""),
+                "position": h_data.get("Position", ""),
+                "vg_pn": h_data.get("Vorgesetzter_PN", ""),
+                "vg_name": h_data.get("Vorgesetzter_Name", ""),
+                "vg_oe": h_data.get("Vorgesetzter_OE", ""),
+                "org_pfad": h_data.get("Organisations_Pfad", ""),
+                "oe_hierarchie": h_data.get("OE_Hierarchie", ""),
+                "oe_kette": h_data.get("OE_Kette", ""),
+                "oe_bez_kette": h_data.get("OE_Bez_Kette", ""),
+                "status_ma": h_data.get("Status", "")
+            }
+            
+            # Nur Basis-Hierarchie und Ketten (keine org_level_* Spalten)
+            row.update(base_hierarchy)
+        else:
+            # Leere Werte für fehlende Hierarchie-Daten
+            empty_values = {
+                "hierarchie_ebene": "",
+                "oe_kurz": "",
+                "oe_bez": "",
+                "position": "",
+                "vg_pn": "",
+                "vg_name": "",
+                "vg_oe": "",
+                "org_pfad": "",
+                "oe_hierarchie": "",
+                "oe_kette": "",
+                "oe_bez_kette": "",
+                "status_ma": ""
+            }
+            
+            row.update(empty_values)
+        
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -314,14 +539,15 @@ def export_ds_csv(results: list[dict], out_csv: Path):
 def move_after_processing(input_dir: Path, results: list[dict]):
     """
     Verschiebt Dateien je nach Status:
-      - OK  -> /ruecklauf/archiv
+      - OK  -> /ruecklauf/verarbeitet
       - manuell -> /ruecklauf/manuell
     Achtung: nur DOCX (hier); PDFs kommen im separaten Schritt.
     """
-    archiv_dir = input_dir / "archiv"
+    verarbeitet_dir = input_dir / "verarbeitet"
     manuell_dir = input_dir / "manuell"
-    archiv_dir.mkdir(parents=True, exist_ok=True)
+    verarbeitet_dir.mkdir(parents=True, exist_ok=True)
     manuell_dir.mkdir(parents=True, exist_ok=True)
+    tracking = SimpleTrackingSystem()
 
     def _unique_path(base_dir: Path, name: str) -> Path:
         target = base_dir / name
@@ -345,51 +571,28 @@ def move_after_processing(input_dir: Path, results: list[dict]):
             continue
 
         if r.get("status") == "ok":
-            dst = _unique_path(archiv_dir, fname)
+            dst = _unique_path(verarbeitet_dir, fname)
             shutil.move(str(src), str(dst))
             moved_ok += 1
+            
+            # Tracking: Markiere als erhalten
+            pn = r.get("pn", "")
+            if pn:
+                tracking.mark_received(fname, pn, "word")
+                
         elif r.get("status") == "manuell":
             dst = _unique_path(manuell_dir, fname)
             shutil.move(str(src), str(dst))
             moved_man += 1
+            
+            # Tracking: Markiere als empfangen aber fehlerhaft
+            pn = r.get("pn", "")
+            if pn:
+                tracking.mark_received(fname, pn, "word")
+                tracking.mark_error(fname, pn, "word", r.get("reason", "Unbekannter Fehler"))
 
     return moved_ok, moved_man
 
-def export_ds_csv(results: list[dict], out_csv: Path):
-    """
-    Exportiert alle gelesenen ContentControls aus Rückblick/Ausblick-DOCX
-    für Data-Science-Analysen.
-    Jede Zeile = ein Tag-Wert-Paar pro Dokument.
-    """
-    rows = []
-    today = pd.Timestamp.today().normalize()
-
-    for r in results:
-        if r.get("status") != "ok":
-            continue  # nur gültige DOCX
-
-        typ = r.get("typ")
-        if typ not in ("Rückblick", "Ausblick"):
-            continue
-
-        pn = r.get("pn", "")
-        fname = Path(r.get("file", "")).name
-        tags = (r.get("extras", {}) or {}).get("all_tags", {}) or r.get("tags", {})
-
-        for key, val in tags.items():
-            rows.append({
-                "PersNr": pn,
-                "Typ": typ,
-                "Feld": key,
-                "Wert": val,
-                "Datei": fname,
-                "Datum Extraktion": today
-            })
-
-    df_out = pd.DataFrame(rows,
-                          columns=["PersNr","Typ","Feld","Wert","Datei","Datum Extraktion"])
-    out_csv.parent.mkdir(parents=True, exist_ok=True)
-    df_out.to_csv(out_csv, sep=";", index=False, encoding="utf-8")
 
 
 # ---------------------------
@@ -402,7 +605,7 @@ def _normalize(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     return s.encode("ascii", "ignore").decode("ascii").lower()
 
-def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame) -> list[dict]:
+def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_jahr: int | None = None) -> list[dict]:
     """
     Bearbeitet PDFs im Eingangsordner:
     - Typ erkennen (Rückblick/Ausblick/Feedback/Probezeit)
@@ -414,11 +617,12 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame) -> list[dic
     results = []
     in_dir = Path(in_dir)
     out_root = Path(out_root)
+    tracking = SimpleTrackingSystem()
 
     for pdf_path in in_dir.glob("*.pdf"):
         fname = pdf_path.name
         norm = _normalize(fname)
-        target_dir = out_root / "robot_input"
+        target_dir = out_root
         target_name = None
         status = "ok"
         typ = None
@@ -463,6 +667,24 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame) -> list[dic
             else:
                 dest = target_dir / fname
 
+            # Duplikat-Erkennung (nur für Rückblick/Ausblick)
+            if typ in ("Rückblick", "Ausblick") and pn:
+                is_duplicate, warning = tracking.check_duplicate(fname, pn)
+                if is_duplicate:
+                    status = "manuell"
+                    target_dir = out_root / "manuell"
+                    dest = target_dir / fname
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(pdf_path), dest)
+                    results.append({
+                        "file": fname,
+                        "typ": typ,
+                        "pn": pn,
+                        "target": str(dest),
+                        "status": f"Duplikat: {warning}"
+                    })
+                    continue
+
             # Duplikate behandeln
             counter = 1
             while dest.exists():
@@ -490,5 +712,9 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame) -> list[dic
             })
             (out_root / "manuell").mkdir(parents=True, exist_ok=True)
             shutil.move(str(pdf_path), (out_root / "manuell" / fname))
+
+    # Logging nach ruecklauf/logs/processing_log.csv
+    if durchlauf_jahr is not None:
+        _append_processing_log(results, durchlauf_jahr)
 
     return results

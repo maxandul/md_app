@@ -8,23 +8,29 @@ paths:
     feedback: "../templates/MD_Feedback.docx"
   ruecklauf:
     root: "../ruecklauf"
-    archiv: "../ruecklauf/archiv"
+    unverarbeitet: "../ruecklauf/unverarbeitet"
+    verarbeitet: "../ruecklauf/verarbeitet"
     manuell: "../ruecklauf/manuell"
+    feedbacks: "../ruecklauf/feedbacks"
   tracking_dir: "../tracking"
+  versand_log: "../tracking/versand_log.csv"
+  ruecklauf_status: "../tracking/ruecklauf_status.csv"
   sap_massenupload_dir: "../sap_massenupload"
   sap_massenupload_archiv: "../sap_massenupload/archiv"
+  logs_dir: "../ruecklauf/logs"
+  rpa_input_dir: "K:/VD-GS-PUO-Personal/100 Roboter/Input"
 
 mail:
   send_mode: "display"          # "display" zum Testen, "send" für produktiv
-  from_address: "hr@vd.zh.ch"   # ODER leer lassen
+  from_address: ""   # ODER leer lassen
   reply_to: "hr@vd.zh.ch"       # optional
   bcc: ""                       # optional
-  choose_account_smtp: ""       # Optional: z.B. "hr-gruppenpostfach@deine-org.ch"
+  choose_account_smtp: "ulrich.andreas@hotmail.com"       # Optional: z.B. "hr-gruppenpostfach@deine-org.ch"
   subject_template: "MD-Unterlagen Durchlauf {rb_year}/{ab_year}"
   body_html_template: |
-    <p>#### Dies ist eine automatisch generierte E-Mail ###</p>
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
 
-    <p>{anrede},</p>
+    <p>{anrede}</p>
 
     <p>Der jährliche Mitarbeitenden-Dialog steht an. Im Anhang findest du:</p>
     <ul>
@@ -57,5 +63,16 @@ mail:
 
     <p>Wir wünschen dir spannende und konstruktive Dialoge!</p>
 
-    <p>Herzliche Grüsse<br>Dein HR Management</p>
+    <p>Herzliche Grüsse<br>Dein HR-Management</p>
 
+
+mail_underjaehrig:
+  subject_template: "MD-Unterlagen"
+  body_html_template: |
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
+
+    <p>{anrede}</p>
+
+    <p>Hier wie gewünscht die MD-Unterlagen.</p>
+
+    <p>Herzliche Grüsse<br>Dein HR-Management</p>

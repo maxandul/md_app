@@ -30,7 +30,7 @@ def _set_from_account(mail, outlook):
         except Exception:
             pass  # Fallback: Outlook default
 
-def send_mail(to: str, subject: str, html_body: str, attachments: list[Path] = None, cc: str | None = None, bcc: str | None = None):
+def send_mail(to: str, subject: str, html_body: str, attachments: list[Path] = None, cc: str | None = None, bcc: str | None = None, mode_override: str | None = None):
     pythoncom.CoInitialize()
     outlook = win32.Dispatch("Outlook.Application")
     try:
@@ -53,7 +53,8 @@ def send_mail(to: str, subject: str, html_body: str, attachments: list[Path] = N
         for att in attachments or []:
             mail.Attachments.Add(str(att))
 
-        mode = (CFG.get("mail", {}).get("send_mode") or "send").lower()
+        # Modus: optionaler Override pro Aufruf, sonst aus config
+        mode = (mode_override or CFG.get("mail", {}).get("send_mode") or "send").lower()
         if mode == "display":
             mail.Display(False)
         else:

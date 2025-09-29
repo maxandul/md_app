@@ -1,4 +1,16 @@
 # app/dispatch.py
+"""
+Dokumentenversand und -generierung für MD-Prozess
+
+Dieses Modul behandelt:
+- Bestimmung der benötigten Dokumenttypen pro Mitarbeiter
+- Generierung von Word-Dokumenten aus Vorlagen
+- E-Mail-Versand mit Anhängen
+- Geschäftsregeln für Rückblick/Ausblick/Probezeit
+
+Autor: HR-Team
+Version: 1.0
+"""
 from pathlib import Path
 from datetime import date
 import pandas as pd
@@ -12,11 +24,20 @@ CFG = load_config()
 
 def determine_docset(row: pd.Series, today: date) -> list[str]:
     """
-    Regeln:
+    Bestimmt die benötigten Dokumenttypen basierend auf Mitarbeiter-Status.
+    
+    Geschäftsregeln:
     1) Austritt Okt (Y) – Jan (Y+1)         -> ["Rückblick"]
     2) Ende Probezeit Okt (Y) – Jan (Y+1)   -> ["Rückblick_Probezeit", "Ausblick"]
     3) Ende Probezeit Jun–Sep (Y)           -> ["Ausblick"]
     4) Sonst                                -> ["Rückblick", "Ausblick"]
+    
+    Args:
+        row: SAP-Datensatz des Mitarbeiters
+        today: Aktuelles Datum für Berechnungen
+        
+    Returns:
+        Liste der benötigten Dokumenttypen
     """
     y = today.year
     austritt = row.get("Austritt")
@@ -38,9 +59,18 @@ def determine_docset(row: pd.Series, today: date) -> list[str]:
 
     return ["Rückblick", "Ausblick"]
 
-def build_and_send_for_manager(mgr_row: pd.Series, subs_df: pd.DataFrame,
-                               rb_year: int, ab_year: int,
-                               today: date, out_root: Path, managers_index: dict | None = None):
+def build_and_send_for_manager(
+    mgr_row: pd.Series,
+    subs_df: pd.DataFrame,
+    rb_year: int,
+    ab_year: int,
+    today: date,
+    out_root: Path,
+    managers_index: dict | None = None,
+    doc_types_override: list[str] | None = None,
+    include_feedback: bool = True,
+    send_mode: str | None = None,
+):
     tp = CFG["paths"]["templates"]
     tpl_paths = {
         "Ausblick": Path(__file__).parent / tp["ausblick"],
@@ -57,8 +87,13 @@ def build_and_send_for_manager(mgr_row: pd.Series, subs_df: pd.DataFrame,
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Directs
+    allowed_types = {"Rückblick", "Ausblick", "Rückblick_Probezeit"}
+
     for _, r in subs_df.iterrows():
-        for typ in determine_docset(r, today):
+        types_for_row = list(doc_types_override) if doc_types_override else determine_docset(r, today)
+        # filtern auf erlaubte Typen und Reihenfolge stabil halten
+        types_for_row = [t for t in types_for_row if t in allowed_types]
+        for typ in types_for_row:
             ctx = row_to_context(r, typ, managers=managers_index)
 
             # Jahr pro Typ
@@ -81,38 +116,40 @@ def build_and_send_for_manager(mgr_row: pd.Series, subs_df: pd.DataFrame,
             fill_word_template(tpl_paths[typ], ctx, out_path)
             attachments.append(out_path)
 
-    # Feedback (für Manager selbst)
-    fb_ctx = row_to_context(mgr_row, "Feedback", managers=managers_index)
-    fb_ctx["fb_pn_vg"] = mgr_pn   
+    # Feedback (für Manager selbst) nur falls gewünscht (Jahreslauf)
+    if include_feedback:
+        fb_ctx = row_to_context(mgr_row, "Feedback", managers=managers_index)
+        fb_ctx["fb_pn_vg"] = mgr_pn
 
-    fb_name = (
-        "Vorlage_Feedback_an_"
-        f"{mgr_row.get('Nachname','')}_{mgr_row.get('Rufname','')}_{mgr_pn}.docx"
-    )
-    print("Feedback-Kontext:", fb_ctx)
-    fb_path = out_dir / fb_name
-    fill_word_template(tpl_paths["Feedback"], fb_ctx, fb_path)
-    attachments.append(fb_path)
+        fb_name = (
+            "Vorlage_Feedback_an_"
+            f"{mgr_row.get('Nachname','')}_{mgr_row.get('Rufname','')}_{mgr_pn}.docx"
+        )
+        fb_path = out_dir / fb_name
+        fill_word_template(tpl_paths["Feedback"], fb_ctx, fb_path)
+        attachments.append(fb_path)
 
     # Empfänger
     to = str(mgr_row.get("lange ID/Nummer", "")).strip()
     if not to:
         raise ValueError("E-Mail des/der Vorgesetzten nicht gefunden (Spalte 'lange ID/Nummer').")
 
-    # Mailtexte aus config
-    subject_tpl = (CFG.get("mail", {}).get("subject_template") or "Unterlagen")
-    subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
-
+    # Mailtexte aus config: Jahreslauf vs. unterjährig
     vg_vorname = str(mgr_row.get("Rufname", "")).strip()
     anrede = f"Hallo {vg_vorname}" if vg_vorname else "Hallo"
 
-    subject_tpl = CFG.get("mail", {}).get("subject_template", "MD-Unterlagen Durchlauf {rb_year}/{ab_year}")
-    subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
-
-    body_tpl = CFG.get("mail", {}).get("body_html_template", "")
-    body = body_tpl.format(anrede=anrede, rb_year=rb_year, ab_year=ab_year)
+    if include_feedback:
+        subject_tpl = CFG.get("mail", {}).get("subject_template", "MD-Unterlagen Durchlauf {rb_year}/{ab_year}")
+        body_tpl = CFG.get("mail", {}).get("body_html_template", "")
+        subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
+        body = body_tpl.format(anrede=anrede, rb_year=rb_year, ab_year=ab_year)
+    else:
+        subject_tpl = CFG.get("mail_underjaehrig", {}).get("subject_template", "MD-Unterlagen")
+        body_tpl = CFG.get("mail_underjaehrig", {}).get("body_html_template", "")
+        subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
+        body = body_tpl.format(anrede=anrede, rb_year=rb_year, ab_year=ab_year)
 
     # Versand
     send_mail(
-        to=to, subject=subject, html_body=body, attachments=attachments
+        to=to, subject=subject, html_body=body, attachments=attachments, mode_override=send_mode
     )

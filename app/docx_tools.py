@@ -24,6 +24,29 @@ RB_GESAMTEINDRUCK_MAP = {
 def _norm(s: str) -> str:
     return (s or "").strip().lower()
 
+def _is_empty_or_stop_content(text: str) -> bool:
+    """
+    Prüft ob Text nur aus leeren Zeichen oder Stoppzeichen besteht.
+    Überspringt Inhalte mit nur:
+    - Geschützten Leerzeichen (U+00A0)
+    - Bindestrichen (-)
+    - Leerzeichen
+    - Tabs
+    - Zeilenumbrüchen
+    """
+    if not text:
+        return True
+    
+    # Entferne alle Stoppzeichen und prüfe ob etwas übrig bleibt
+    cleaned = text.replace('\u00A0', '')  # Geschütztes Leerzeichen
+    cleaned = cleaned.replace('-', '')     # Bindestrich
+    cleaned = cleaned.replace(' ', '')    # Normale Leerzeichen
+    cleaned = cleaned.replace('\t', '')   # Tabs
+    cleaned = cleaned.replace('\n', '')   # Zeilenumbrüche
+    cleaned = cleaned.replace('\r', '')   # Carriage Return
+    
+    return len(cleaned.strip()) == 0
+
 def map_rb_gesamteindruck(value_text: str) -> str:
     """Nimmt den Anzeigenamen ODER bereits A-E und gibt A-E zurück, sonst ''."""
     return RB_GESAMTEINDRUCK_MAP.get(_norm(value_text), "")
@@ -62,7 +85,11 @@ def read_content_controls(docx_path: str | Path) -> Dict[str, str]:
                     text = " ".join(
                         t.text for t in text_nodes if t is not None and t.text
                     )
-                    values[key] = text.strip()
+                    text = text.strip()
+                    
+                    # Überspringe Steuerelemente mit nur Stoppzeichen
+                    if not _is_empty_or_stop_content(text):
+                        values[key] = text
     except Exception as e:
         raise RuntimeError(f"DOCX beschädigt/Lesefehler: {e}")
 

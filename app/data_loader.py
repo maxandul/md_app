@@ -11,10 +11,12 @@ CFG = load_config()
 
 def load_employees():
     xlsx_path = Path(__file__).parent / CFG["paths"]["sap_stammdaten"]
-    df = pd.read_excel(
-        xlsx_path,
-        dtype={"ID_NO_ZERO": str, "Dir. Vorgesetzter (PN)": str, "Ans.": str},
-    )
+    # Erst ohne dtype laden, damit fehlende Spalten keinen Absturz verursachen
+    df = pd.read_excel(xlsx_path)
+    # dtype nur anwenden, wenn Spalten existieren
+    for col, t in {"ID_NO_ZERO": str, "Dir. Vorgesetzter (PN)": str, "Ans.": str}.items():
+        if col in df.columns:
+            df[col] = df[col].astype(t)
     df.columns = [c.strip() for c in df.columns]
 
     # Nur noch neutrale Textspalten
@@ -47,22 +49,33 @@ def load_employees():
     return df
 
 def build_manager_index(df: pd.DataFrame):
-    """vg_pn -> {'manager': row, 'subs': DataFrame}; ignoriert vg_pn leer/'0'/NaN."""
+    """vg_pn -> {'manager': row|None, 'subs': DataFrame}
+    - Schließt Vorgesetzte mit fehlendem/Null VG-PN NICHT mehr aus.
+    - Nimmt Manager auch dann auf, wenn deren Stammdatensatz (by PN) nicht gefunden wird (manager=None).
+    """
     index = {}
-    by_pn = {pn: r for pn, r in df.set_index("ID_NO_ZERO").iterrows()}
-
-    if "Dir. Vorgesetzter (PN)" not in df.columns:
+    if "ID_NO_ZERO" not in df.columns or "Dir. Vorgesetzter (PN)" not in df.columns:
         return {}
 
-    for vg_pn, subs in df.groupby("Dir. Vorgesetzter (PN)"):
-        if not vg_pn or vg_pn in ("0", "nan", "NaN", "None"):
-            continue  # Personen ohne gültige VG-PN nicht versenden
-        mgr_row = by_pn.get(vg_pn)
-        if mgr_row is None:
-            continue
+    # Normalisierte PN-Strings (Trim + gleiche Länge über beide Spalten)
+    pn_col = df["ID_NO_ZERO"].astype(str).str.strip()
+    vg_col = df["Dir. Vorgesetzter (PN)"].astype(str).str.strip()
+    max_len = max(pn_col.str.len().max(), vg_col.str.len().max())
+    df_norm = df.copy()
+    df_norm["_pn_norm"] = pn_col.str.zfill(max_len)
+    df_norm["_vg_norm"] = vg_col.str.zfill(max_len)
+
+    by_pn = {pn: r for pn, r in df_norm.set_index("_pn_norm").iterrows()}
+
+    for vg_pn_norm, subs in df_norm.groupby("_vg_norm"):
         # Nur Manager mit mindestens 1 Direct
-        if len(subs) > 0:
-            index[vg_pn] = {"manager": mgr_row, "subs": subs.copy()}
+        if len(subs) <= 0:
+            continue
+        mgr_row = by_pn.get(vg_pn_norm)
+        index[vg_pn_norm] = {
+            "manager": mgr_row,  # kann None sein
+            "subs": subs.drop(columns=[c for c in ["_pn_norm","_vg_norm"] if c in subs.columns]).copy(),
+        }
     return index
 
 def _manager_fields(vg_pn: str, managers: dict | None):

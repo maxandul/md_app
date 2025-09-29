@@ -1,0 +1,43 @@
+# Bytecode / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Local data/output (werden extern generiert/gesammelt)
+export/
+ds_export/
+tracking/
+ruecklauf/
+sap_stammdaten/~$*
+sap_stammdaten/*.XLSX
+Beliebige/
+
+# Office Temp-Dateien
+~$*.docx
+~$*.xlsx
+
+# Build/Dist
+dist/
+build/
+
+# Backup/Temp
+*.bak
+*.tmp
+
+
