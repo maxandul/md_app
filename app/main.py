@@ -1684,7 +1684,7 @@ class App(tk.Tk):
         entry_vars = {}
         
         # Eingabefelder für alle Spalten erstellen
-        for col_key, col_label, editable in columns:
+        for i, (col_key, col_label, editable) in enumerate(columns):
             frame = ttk.Frame(scrollable_frame)
             frame.pack(fill="x", padx=8, pady=2)
             
@@ -1692,28 +1692,28 @@ class App(tk.Tk):
             
             if not editable:
                 # Nur-Lese Feld für nicht editierbare Spalten
-                ttk.Label(frame, text=str(values[columns.index((col_key, col_label, editable)) + 1]), 
+                ttk.Label(frame, text=str(values[i + 1]), 
                          relief="sunken", width=40).pack(side="left", padx=(4, 0))
             else:
                 # Eingabefeld
                 if col_key == "status":
                     # Status als Combobox
-                    var = tk.StringVar(value=values[columns.index((col_key, col_label, editable)) + 1])
+                    var = tk.StringVar(value=values[i + 1])
                     entry = ttk.Combobox(frame, textvariable=var, width=37,
                                        values=["ausstehend", "erhalten", "prüfung_nötig", "erübrigt"])
                 elif col_key == "status_grund":
                     # Status Grund als Combobox mit Vorschlägen
-                    var = tk.StringVar(value=values[columns.index((col_key, col_label, editable)) + 1])
+                    var = tk.StringVar(value=values[i + 1])
                     entry = ttk.Combobox(frame, textvariable=var, width=37,
                                        values=["", "Grund_Prüfung (aus Verarbeitung)", "Krankheit/Unfall", 
                                               "anderer VG", "Austritt", "sonstiges"])
                 elif col_key in ["erwartet", "erhalten"]:
                     # Numerische Felder
-                    var = tk.StringVar(value=str(values[columns.index((col_key, col_label, editable)) + 1]))
+                    var = tk.StringVar(value=str(values[i + 1]))
                     entry = ttk.Entry(frame, textvariable=var, width=40)
                 else:
                     # Textfelder
-                    var = tk.StringVar(value=str(values[columns.index((col_key, col_label, editable)) + 1]))
+                    var = tk.StringVar(value=str(values[i + 1]))
                     entry = ttk.Entry(frame, textvariable=var, width=40)
                 
                 entry.pack(side="left", padx=(4, 0))
@@ -1729,11 +1729,20 @@ class App(tk.Tk):
                 updates = {}
                 for col_key, var in entry_vars.items():
                     new_value = var.get().strip()
-                    old_value = str(values[columns.index((col_key, col_label, True)) + 1])
                     
-                    # Nur ändern wenn Wert tatsächlich geändert wurde
-                    if new_value != old_value:
-                        updates[col_key] = new_value
+                    # Finde den Index der Spalte
+                    col_index = None
+                    for i, (key, _, _) in enumerate(columns):
+                        if key == col_key:
+                            col_index = i + 1
+                            break
+                    
+                    if col_index is not None:
+                        old_value = str(values[col_index])
+                        
+                        # Nur ändern wenn Wert tatsächlich geändert wurde
+                        if new_value != old_value:
+                            updates[col_key] = new_value
                 
                 if not updates:
                     messagebox.showinfo("Info", "Keine Änderungen vorgenommen.")
