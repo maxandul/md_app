@@ -1450,7 +1450,7 @@ class App(tk.Tk):
             text=(
                 "MD-Dashboard\n"
                 "- 'Aktualisieren' lädt die aktuellen Tracking-Daten.\n"
-                "- Filter nach Manager-PN, Status und Jahr möglich.\n"
+                "- Filter nach Name (VG/MA) und Status möglich.\n"
                 "- 'Manuelle Anpassung' erlaubt Statuskorrekturen je Eintrag.\n"
                 "- 'Export CSV' speichert die aktuell gefilterte Ansicht."
             ),
@@ -1463,20 +1463,17 @@ class App(tk.Tk):
         
         ttk.Label(filter_frame, text="Filter:").pack(side="left", padx=(0, 8))
         
-        # Manager Filter
-        ttk.Label(filter_frame, text="Manager PN:").pack(side="left", padx=(0, 4))
-        self.dash_mgr_filter = ttk.Entry(filter_frame, width=10)
-        self.dash_mgr_filter.pack(side="left", padx=(0, 16))
+        # Namenssuche
+        ttk.Label(filter_frame, text="Name:").pack(side="left", padx=(0, 4))
+        self.dash_name_search = ttk.Entry(filter_frame, width=15)
+        self.dash_name_search.pack(side="left", padx=(0, 16))
+        self.dash_name_search.bind("<KeyRelease>", lambda e: self.on_apply_dashboard_filters())
         
         # Status Filter
         ttk.Label(filter_frame, text="Status:").pack(side="left", padx=(0, 4))
         self.dash_status_filter = ttk.Combobox(filter_frame, width=12, values=["", "ausstehend", "erhalten", "prüfung_nötig", "erübrigt"])
         self.dash_status_filter.pack(side="left", padx=(0, 16))
-        
-        # Jahr Filter
-        ttk.Label(filter_frame, text="Jahr:").pack(side="left", padx=(0, 4))
-        self.dash_year_filter = ttk.Entry(filter_frame, width=6)
-        self.dash_year_filter.pack(side="left", padx=(0, 16))
+        self.dash_status_filter.bind("<<ComboboxSelected>>", lambda e: self.on_apply_dashboard_filters())
         
         ttk.Button(filter_frame, text="Anwenden", command=self.on_apply_dashboard_filters).pack(side="left")
         
@@ -1561,20 +1558,25 @@ class App(tk.Tk):
         
         try:
             # Filter anwenden
-            mgr_filter = self.dash_mgr_filter.get().strip()
+            name_search = self.dash_name_search.get().strip().lower()
             status_filter = self.dash_status_filter.get().strip()
-            year_filter = self.dash_year_filter.get().strip()
-            
-            year_int = int(year_filter) if year_filter.isdigit() else None
             
             # Daten laden
             df = self.tracking.get_dashboard_data(
-                filter_mgr=mgr_filter,
                 filter_status=status_filter
             )
             
             if df.empty:
                 return
+            
+            # Namenssuche anwenden (falls Suchbegriff eingegeben)
+            if name_search:
+                # Suche in VG-Name und MA-Name (case-insensitive)
+                name_mask = (
+                    df["vg_name"].astype(str).str.lower().str.contains(name_search, na=False) |
+                    df["ma_name"].astype(str).str.lower().str.contains(name_search, na=False)
+                )
+                df = df[name_mask]
             
             # Daten in Treeview einfügen
             for _, row in df.iterrows():
@@ -1625,7 +1627,7 @@ class App(tk.Tk):
         self.on_refresh_dashboard()
     
     def on_manual_adjustment(self):
-        """Öffnet Dialog für manuelle Anpassung"""
+        """Öffnet Dialog für manuelle Anpassung aller Spalten"""
         selection = self.tree_dashboard.selection()
         if not selection:
             messagebox.showwarning("Warnung", "Bitte wählen Sie einen Eintrag aus.")
@@ -1634,57 +1636,133 @@ class App(tk.Tk):
         item = self.tree_dashboard.item(selection[0])
         values = item["values"]
         
-        if len(values) < 6:
+        if len(values) < 12:
             messagebox.showerror("Fehler", "Ungültiger Eintrag ausgewählt.")
             return
         
         log_id = values[0]
-        vg_pn = values[1]
-        ma_pn = values[3]
-        doc_type = values[5]
         
         # Dialog für manuelle Anpassung
         dialog = tk.Toplevel(self)
         dialog.title("Manuelle Anpassung")
-        dialog.geometry("500x300")
+        dialog.geometry("700x600")
         dialog.transient(self)
         dialog.grab_set()
         
-        ttk.Label(dialog, text=f"Log-ID: {log_id}").pack(pady=8)
-        ttk.Label(dialog, text=f"VG PN: {vg_pn}, MA PN: {ma_pn}").pack(pady=4)
-        ttk.Label(dialog, text=f"Dokument-Typ: {doc_type}").pack(pady=4)
+        # Scrollbar für Dialog
+        canvas = tk.Canvas(dialog)
+        scrollbar = ttk.Scrollbar(dialog, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
         
-        # Status-Auswahl
-        ttk.Label(dialog, text="Neuer Status:").pack(pady=(16, 4))
-        status_var = tk.StringVar(value="erhalten")
-        status_combo = ttk.Combobox(dialog, textvariable=status_var, 
-                                  values=["ausstehend", "erhalten", "prüfung_nötig", "erübrigt"])
-        status_combo.pack(pady=4)
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         
-        # Grund
-        ttk.Label(dialog, text="Status Grund:").pack(pady=(16, 4))
-        reason_var = tk.StringVar()
-        reason_combo = ttk.Combobox(dialog, textvariable=reason_var, width=40,
-                                   values=["", "Grund_Prüfung (aus Verarbeitung)", "Krankheit/Unfall", 
-                                          "anderer VG", "Austritt", "sonstiges"])
-        reason_combo.pack(pady=4)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Titel
+        ttk.Label(scrollable_frame, text=f"Log-ID: {log_id}", font=("Arial", 12, "bold")).pack(pady=8)
+        
+        # Spalten-Definitionen
+        columns = [
+            ("vg_pn", "VG PN", True),
+            ("vg_name", "VG Name", True),
+            ("ma_pn", "MA PN", True),
+            ("ma_name", "MA Name", True),
+            ("doc_type", "Dokument-Typ", False),  # Nicht editierbar
+            ("erwartet", "Erwartet", True),
+            ("erhalten", "Erhalten", True),
+            ("status", "Status", True),
+            ("status_grund", "Status Grund", True),
+            ("versendet_am", "Versendet am", True),
+            ("zuletzt_erinnert_am", "Zuletzt erinnert am", True)
+        ]
+        
+        # Variablen für Eingabefelder
+        entry_vars = {}
+        
+        # Eingabefelder für alle Spalten erstellen
+        for col_key, col_label, editable in columns:
+            frame = ttk.Frame(scrollable_frame)
+            frame.pack(fill="x", padx=8, pady=2)
+            
+            ttk.Label(frame, text=f"{col_label}:", width=20, anchor="w").pack(side="left")
+            
+            if not editable:
+                # Nur-Lese Feld für nicht editierbare Spalten
+                ttk.Label(frame, text=str(values[columns.index((col_key, col_label, editable)) + 1]), 
+                         relief="sunken", width=40).pack(side="left", padx=(4, 0))
+            else:
+                # Eingabefeld
+                if col_key == "status":
+                    # Status als Combobox
+                    var = tk.StringVar(value=values[columns.index((col_key, col_label, editable)) + 1])
+                    entry = ttk.Combobox(frame, textvariable=var, width=37,
+                                       values=["ausstehend", "erhalten", "prüfung_nötig", "erübrigt"])
+                elif col_key == "status_grund":
+                    # Status Grund als Combobox mit Vorschlägen
+                    var = tk.StringVar(value=values[columns.index((col_key, col_label, editable)) + 1])
+                    entry = ttk.Combobox(frame, textvariable=var, width=37,
+                                       values=["", "Grund_Prüfung (aus Verarbeitung)", "Krankheit/Unfall", 
+                                              "anderer VG", "Austritt", "sonstiges"])
+                elif col_key in ["erwartet", "erhalten"]:
+                    # Numerische Felder
+                    var = tk.StringVar(value=str(values[columns.index((col_key, col_label, editable)) + 1]))
+                    entry = ttk.Entry(frame, textvariable=var, width=40)
+                else:
+                    # Textfelder
+                    var = tk.StringVar(value=str(values[columns.index((col_key, col_label, editable)) + 1]))
+                    entry = ttk.Entry(frame, textvariable=var, width=40)
+                
+                entry.pack(side="left", padx=(4, 0))
+                entry_vars[col_key] = var
+        
+        # Buttons
+        button_frame = ttk.Frame(scrollable_frame)
+        button_frame.pack(pady=16)
         
         def apply_adjustment():
-            new_status = status_var.get()
-            reason = reason_var.get().strip()
-            
             try:
-                if self.tracking.manual_status_update(vg_pn, ma_pn, doc_type, new_status, reason):
-                    messagebox.showinfo("Erfolg", "Anpassung gespeichert.")
+                # Sammle alle Änderungen
+                updates = {}
+                for col_key, var in entry_vars.items():
+                    new_value = var.get().strip()
+                    old_value = str(values[columns.index((col_key, col_label, True)) + 1])
+                    
+                    # Nur ändern wenn Wert tatsächlich geändert wurde
+                    if new_value != old_value:
+                        updates[col_key] = new_value
+                
+                if not updates:
+                    messagebox.showinfo("Info", "Keine Änderungen vorgenommen.")
+                    dialog.destroy()
+                    return
+                
+                # Aktualisiere Eintrag
+                if self.tracking.update_entry(log_id, updates):
+                    messagebox.showinfo("Erfolg", f"Anpassung gespeichert.\nGeändert: {', '.join(updates.keys())}")
                     dialog.destroy()
                     self.on_refresh_dashboard()
                 else:
                     messagebox.showerror("Fehler", "Anpassung fehlgeschlagen - Eintrag nicht gefunden.")
+                    
             except Exception as e:
                 messagebox.showerror("Fehler", f"Fehler beim Speichern: {e}")
         
-        ttk.Button(dialog, text="Anwenden", command=apply_adjustment).pack(pady=16)
-        ttk.Button(dialog, text="Abbrechen", command=dialog.destroy).pack()
+        ttk.Button(button_frame, text="Anwenden", command=apply_adjustment).pack(side="left", padx=(0, 8))
+        ttk.Button(button_frame, text="Abbrechen", command=dialog.destroy).pack(side="left")
+        
+        # Canvas und Scrollbar packen
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Focus auf erstes editierbares Feld
+        for col_key, var in entry_vars.items():
+            if col_key == "vg_pn":
+                # Focus auf VG PN setzen
+                break
     
     def on_export_dashboard(self):
         """Exportiert Dashboard-Daten als CSV"""
@@ -1700,16 +1778,10 @@ class App(tk.Tk):
                 return
             
             # Aktuelle Filter anwenden
-            mgr_filter = self.dash_mgr_filter.get().strip()
             status_filter = self.dash_status_filter.get().strip()
-            year_filter = self.dash_year_filter.get().strip()
-            
-            year_int = int(year_filter) if year_filter.isdigit() else None
             
             df = self.tracking.get_dashboard_data(
-                filter_mgr=mgr_filter,
-                filter_status=status_filter,
-                filter_year=year_int
+                filter_status=status_filter
             )
             
             df.to_csv(filename, sep=";", index=False, encoding="utf-8-sig")

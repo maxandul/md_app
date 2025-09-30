@@ -181,6 +181,35 @@ class SimpleTrackingSystem:
         self._save_log(df)
         return True
     
+    def update_entry(self, log_id: str, updates: dict) -> bool:
+        """
+        Aktualisiert beliebige Spalten eines Eintrags über die Log-ID.
+        
+        Args:
+            log_id: Eindeutige Log-ID des Eintrags
+            updates: Dictionary mit Spaltenname -> neuer Wert
+            
+        Returns:
+            True wenn erfolgreich aktualisiert
+        """
+        df = self._load_log()
+        if df.empty:
+            return False
+        
+        # Finde Eintrag über Log-ID
+        mask = df["log_id"] == log_id
+        if not mask.any():
+            return False
+        
+        # Aktualisiere alle angegebenen Spalten
+        for column, value in updates.items():
+            if column in df.columns:
+                df.loc[mask, column] = value
+        
+        # Speichere zurück
+        self._save_log(df)
+        return True
+    
     def get_dashboard_data(self, filter_mgr: str = "", filter_status: str = "", filter_year: int = None) -> pd.DataFrame:
         """
         Lädt Dashboard-Daten mit optionalen Filtern.

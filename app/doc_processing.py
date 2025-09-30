@@ -745,7 +745,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
                 status = "prüfung_nötig"
-                target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
                 if pn and typ in ("Rückblick", "Ausblick"):
@@ -779,7 +779,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
                     status = "prüfung_nötig"
-                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -811,7 +811,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
                     if is_duplicate:
                         status = "prüfung_nötig"
-                        target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                        target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(pdf_path), dest)
@@ -835,7 +835,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 else:
                     # Keine SAP-Daten gefunden
                     status = "prüfung_nötig"
-                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -920,7 +920,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "target": "",
                 "extras": {"all_tags": {}}
             })
-            manuell_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+            manuell_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
             manuell_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(pdf_path), (manuell_dir / fname))
 
