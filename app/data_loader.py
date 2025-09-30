@@ -90,7 +90,17 @@ def _manager_fields(vg_pn: str, managers: dict | None):
 
 def row_to_context(row, typ: str, managers: dict | None = None) -> dict:
     """Tag->Wert Mapping gemäss Vorgabe. Vorgesetzten-Daten kommen ausschliesslich über VG-PN."""
-    get = lambda k: "" if row.get(k) is None else str(row.get(k))
+    def get(k):
+        val = row.get(k)
+        if val is None:
+            return ""
+        try:
+            # Behandle pandas NaN/NaT als leer
+            if pd.isna(val):
+                return ""
+        except Exception:
+            pass
+        return str(val)
     vorname = get("Rufname")
     nachname = get("Nachname")
     pn = get("ID_NO_ZERO")

@@ -341,6 +341,8 @@ class App(tk.Tk):
             self.tree.heading(c, text=c)
             self.tree.column(c, width=120 if c in ("PN", "Anzahl MA") else 200, anchor="w")
         self.tree.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
+        # Sortierung binden (PN und Anzahl numerisch)
+        self._bind_treeview_sort(self.tree, numeric_like={"PN", "Anzahl MA"})
 
         # Scrollbar
         scrollbar = ttk.Scrollbar(self.frame_massenversand, orient="vertical", command=self.tree.yview)
@@ -423,6 +425,7 @@ class App(tk.Tk):
             self.tree_einzel.heading(c, text=c)
             self.tree_einzel.column(c, width=120 if c in ("PN", "Anzahl MA") else 200, anchor="w")
         self.tree_einzel.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
+        self._bind_treeview_sort(self.tree_einzel, numeric_like={"PN", "Anzahl MA"})
 
         # Mitarbeitenden-Tabelle
         ttk.Label(self.frame_einzelversand, text="Mitarbeitende:").grid(row=3, column=0, sticky="w", padx=8, pady=(0,4))
@@ -431,6 +434,7 @@ class App(tk.Tk):
             self.subs_tree.heading(c, text=c)
             self.subs_tree.column(c, width=80 if c == "PN" else 100, anchor="w")
         self.subs_tree.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
+        self._bind_treeview_sort(self.subs_tree, numeric_like={"PN"})
 
         # Dokumenttypen
         doc_frame = ttk.LabelFrame(self.frame_einzelversand, text="Dokumenttypen")
@@ -530,6 +534,7 @@ class App(tk.Tk):
             self.vg_tree.heading(c, text=c)
             self.vg_tree.column(c, width=80 if c == "PN" else 120, anchor="w")
         self.vg_tree.pack(fill="both", expand=True, padx=8, pady=(0,8))
+        self._bind_treeview_sort(self.vg_tree, numeric_like={"PN"})
 
         # Mitarbeitenden-Liste
         ma_frame = ttk.LabelFrame(self.frame_vg_ma, text="Mitarbeitende")
@@ -551,6 +556,7 @@ class App(tk.Tk):
             self.ma_tree.heading(c, text=c)
             self.ma_tree.column(c, width=80 if c == "PN" else 120, anchor="w")
         self.ma_tree.pack(fill="both", expand=True, padx=8, pady=(0,8))
+        self._bind_treeview_sort(self.ma_tree, numeric_like={"PN"})
 
         # Auswahl-Status
         self.selection_status = ttk.Label(self.frame_vg_ma, text="Keine Auswahl", foreground="gray")
@@ -843,13 +849,9 @@ class App(tk.Tk):
         entry_target = ttk.Entry(toolbar, textvariable=self.inbox_target_var, width=60)
         entry_target.pack(side="left", padx=(0,8))
 
-        # Fortschritt für Maileingang (indeterminiert)
-        prog_frame_inbox = ttk.Frame(self.frame_ruecklauf)
-        prog_frame_inbox.grid(row=1, column=0, columnspan=6, sticky="ew", padx=8, pady=(0, 4))
-        self.inbox_progress = ttk.Progressbar(prog_frame_inbox, orient="horizontal", length=300, mode="indeterminate")
-        self.inbox_progress.pack(side="left")
-        self.inbox_status = ttk.Label(prog_frame_inbox, text="Bereit.", foreground="gray")
-        self.inbox_status.pack(side="left", padx=(8,0))
+        # Status für Maileingang (einfaches Label)
+        self.inbox_status = ttk.Label(self.frame_ruecklauf, text="Bereit.", foreground="gray")
+        self.inbox_status.grid(row=1, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 4))
 
         # Status-Zeile
         self.ruecklauf_status = ttk.Label(self.frame_ruecklauf, text="Noch kein Scan durchgeführt.", foreground="gray")
@@ -903,7 +905,50 @@ class App(tk.Tk):
         tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
 
+        # Standard: alle Spalten sortierbar
+        self._bind_treeview_sort(tree)
+
         return tree
+
+    def _bind_treeview_sort(self, tree: ttk.Treeview, numeric_like: set[str] | None = None):
+        """Bindet klickbare Sortierung an alle Spalten eines Treeviews.
+        numeric_like: optionale Menge von Spaltennamen, die bevorzugt numerisch sortiert werden sollen.
+        """
+        numeric_like = numeric_like or set()
+
+        def _key_for(col: str, value: str):
+            s = (value or "").strip()
+            # erzwungen numerisch für bekannte Spalten
+            if col in numeric_like:
+                try:
+                    if s.endswith('.0') and s.replace('.', '', 1).isdigit():
+                        return int(float(s))
+                    return int(s)
+                except Exception:
+                    try:
+                        return float(s)
+                    except Exception:
+                        return s.lower()
+            # generische Heuristik: erst int, dann float, dann string
+            try:
+                if s.endswith('.0') and s.replace('.', '', 1).isdigit():
+                    return int(float(s))
+                return int(s)
+            except Exception:
+                try:
+                    return float(s)
+                except Exception:
+                    return s.lower()
+
+        def _sort(col: str, descending: bool):
+            data = [(tree.set(k, col), k) for k in tree.get_children("")]
+            data.sort(key=lambda t: _key_for(col, t[0]), reverse=descending)
+            for idx, (_, k) in enumerate(data):
+                tree.move(k, "", idx)
+            tree.heading(col, command=lambda _c=col: _sort(_c, not descending))
+
+        for c in tree["columns"]:
+            tree.heading(c, command=lambda _c=c: _sort(_c, False))
 
 
     def on_scan_real(self):
@@ -912,13 +957,8 @@ class App(tk.Tk):
             for i in t.get_children():
                 t.delete(i)
 
-        # Fortschritt starten
-        if hasattr(self, "inbox_progress"):
-            try:
-                self.inbox_progress.configure(mode="indeterminate")
-                self.inbox_progress.start(50)
-            except Exception:
-                pass
+        # Status starten
+        if hasattr(self, "inbox_status"):
             self.inbox_status.config(text="Scan läuft...", foreground="black")
             self.update_idletasks()
 
@@ -1010,25 +1050,18 @@ class App(tk.Tk):
                 self.tree_skip.insert("", "end", values=[sender, subject, "Keine MD-Anhänge"])
                 skipped += 1
 
-            # Fortschritt-Status aktualisieren (indeterminiert)
+            # Status aktualisieren
             if hasattr(self, "inbox_status"):
-                try:
-                    self.inbox_status.config(text=f"Scan läuft... geprüft: {found} • kopiert: {copied} • verschoben: {moved} • prüfen: {to_check} • übersprungen: {skipped}")
-                    self.update_idletasks()
-                except Exception:
-                    pass
+                self.inbox_status.config(text=f"Scan läuft... geprüft: {found} • kopiert: {copied} • verschoben: {moved} • prüfen: {to_check} • übersprungen: {skipped}")
+                self.update_idletasks()
 
         self.ruecklauf_status.config(
             text=f"Scan abgeschlossen: {found} Mails • {copied} Anhänge kopiert • {moved} verschoben • {to_check} prüfen • {skipped} übersprungen",
             foreground="black"
         )
 
-        # Fortschritt stoppen
-        if hasattr(self, "inbox_progress"):
-            try:
-                self.inbox_progress.stop()
-            except Exception:
-                pass
+        # Status abschließen
+        if hasattr(self, "inbox_status"):
             self.inbox_status.config(text="Bereit.", foreground="gray")
 
     def _get_sender_address(self, mail):
@@ -1074,12 +1107,8 @@ class App(tk.Tk):
         self.batch_size_var = tk.IntVar(value=100)
         ttk.Entry(bar, textvariable=self.batch_size_var, width=6).pack(side="left", padx=(0,12))
 
-        ttk.Button(bar, text="DOCX prüfen & extrahieren",
-                command=self.on_process_docx).pack(side="left", padx=(0, 8))
-        ttk.Button(bar, text="Export (SAP+DS) & verschieben",
-                command=self.on_export_and_move).pack(side="left", padx=(0, 8))
-        ttk.Button(bar, text="PDFs verarbeiten",
-                command=self.on_process_pdfs).pack(side="left")
+        ttk.Button(bar, text="Verarbeitung starten",
+                command=self.on_run_full_processing).pack(side="left")
 
         # Info-Button
         create_info_button(
@@ -1115,6 +1144,7 @@ class App(tk.Tk):
             self.tree_proc.heading(c, text=c)
             self.tree_proc.column(c, width=180 if c not in ("Datei", "Grund") else 260, anchor="w")
         self.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
+        self._bind_treeview_sort(self.tree_proc, numeric_like={"PN"})
 
         # Überschrift und Erklärung für PDF-Verarbeitung
         ttk.Label(self.frame_verarbeitung, text="PDF-Dokumente (eingescannte/konvertierte Dokumente):", 
@@ -1137,6 +1167,7 @@ class App(tk.Tk):
             else:
                 self.tree_pdfs.column(c, width=140, anchor="w")
         self.tree_pdfs.grid(row=7, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 8))
+        self._bind_treeview_sort(self.tree_pdfs, numeric_like={"PN"})
 
         # Grid-Konfiguration
         self.frame_verarbeitung.grid_rowconfigure(4, weight=3)  # DOCX-Tabelle größer
@@ -1146,6 +1177,32 @@ class App(tk.Tk):
         today = date.today()
         return today.year - 1 if today.month <= 4 else today.year
 
+
+    def on_run_full_processing(self):
+        try:
+            # Schritt 1: DOCX prüfen
+            if hasattr(self, "proc_status"):
+                self.proc_status.config(text="Schritt 1/3: DOCX prüfen...", foreground="black")
+                self.update_idletasks()
+            self.on_process_docx()
+
+            # Schritt 2: Exporte & Verschieben
+            if hasattr(self, "proc_status"):
+                self.proc_status.config(text="Schritt 2/3: Export (SAP+DS) & verschieben...", foreground="black")
+                self.update_idletasks()
+            self.on_export_and_move()
+
+            # Schritt 3: PDFs verarbeiten
+            if hasattr(self, "proc_status"):
+                self.proc_status.config(text="Schritt 3/3: PDFs verarbeiten...", foreground="black")
+                self.update_idletasks()
+            self.on_process_pdfs()
+
+            if hasattr(self, "proc_status"):
+                self.proc_status.config(text="Gesamtverarbeitung abgeschlossen.", foreground="black")
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Fehler", f"Verarbeitung abgebrochen: {e}")
 
     def on_process_docx(self):
         # Quelle: /ruecklauf/unverarbeitet
@@ -1377,6 +1434,28 @@ class App(tk.Tk):
             else:
                 self.tree_dashboard.column(c, width=150, anchor="w")
         
+        # Sortierbare Spaltenköpfe (wie in anderen Tabs)
+        def _sort_tree_by_dashboard(tree: ttk.Treeview, col: str, descending: bool):
+            data = [(tree.set(k, col), k) for k in tree.get_children("")]
+            def _to_key(v):
+                s = (v or "").strip()
+                # Versuche numerisch (ganze Zahl), sonst String lower
+                try:
+                    if s.endswith('.0') and s.replace('.', '', 1).isdigit():
+                        return int(float(s))
+                    return int(s)
+                except Exception:
+                    try:
+                        return float(s)
+                    except Exception:
+                        return s.lower()
+            data.sort(key=lambda t: _to_key(t[0]), reverse=descending)
+            for idx, (_, k) in enumerate(data):
+                tree.move(k, "", idx)
+            tree.heading(col, command=lambda _c=col: _sort_tree_by_dashboard(tree, _c, not descending))
+        for c in cols:
+            self.tree_dashboard.heading(c, command=lambda _c=c: _sort_tree_by_dashboard(self.tree_dashboard, _c, False))
+        
         self.tree_dashboard.grid(row=3, column=0, sticky="nsew", padx=8, pady=(0, 8))
         
         # Scrollbar
@@ -1432,6 +1511,19 @@ class App(tk.Tk):
                     if pd.isna(val) or val == "nan" or val == "NaN":
                         return ""
                     return str(val) if val is not None else ""
+                # Personalnummern sauber ohne Dezimalstellen anzeigen
+                def format_pn(val):
+                    try:
+                        # Numerische Floats ohne Nachkommastellen als int darstellen
+                        if isinstance(val, float) and float(val).is_integer():
+                            return str(int(val))
+                        # Strings wie "123456.0" bereinigen
+                        s = safe_value(val)
+                        if s.endswith('.0') and s.replace('.', '', 1).isdigit():
+                            return s[:-2]
+                        return s
+                    except Exception:
+                        return safe_value(val)
                 
                 # Status für Farb-Tag bestimmen
                 status = safe_value(row.get("status", ""))
@@ -1440,9 +1532,9 @@ class App(tk.Tk):
                 # Eintrag mit Farb-Tag einfügen
                 item_id = self.tree_dashboard.insert("", "end", values=(
                     safe_value(row.get("log_id", "")),
-                    safe_value(row.get("vg_pn", "")),
+                    format_pn(row.get("vg_pn", "")),
                     safe_value(row.get("vg_name", "")),
-                    safe_value(row.get("ma_pn", "")),
+                    format_pn(row.get("ma_pn", "")),
                     safe_value(row.get("ma_name", "")),
                     safe_value(row.get("doc_type", "")),
                     safe_value(row.get("erwartet", "")),

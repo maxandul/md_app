@@ -108,9 +108,18 @@ class SimpleTrackingSystem:
         if not mask.any():
             return False
         
-        # Aktualisiere Status und Zähler
-        df.loc[mask, "erhalten"] += 1
-        df.loc[mask, "status"] = "erhalten"
+        # Aktualisiere Zähler/Status
+        df.loc[mask, "erhalten"] = df.loc[mask, "erhalten"].fillna(0).astype(int) + 1
+        if doc_type == "Feedback PDF":
+            # Erst als "erhalten" markieren, wenn erhalten >= erwartet
+            erwartet = df.loc[mask, "erwartet"].fillna(0).astype(int)
+            erhalten = df.loc[mask, "erhalten"].astype(int)
+            fully_received = erhalten >= erwartet
+            # Setze Status nur für die betroffene(n) Zeile(n)
+            df.loc[mask & fully_received, "status"] = "erhalten"
+            # Teilweise eingegangen -> Status bleibt (typisch: ausstehend)
+        else:
+            df.loc[mask, "status"] = "erhalten"
         
         # Speichere zurück
         self._save_log(df)

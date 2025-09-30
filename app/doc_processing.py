@@ -151,7 +151,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             if not gi_code:
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
+                    "status": "prüfung_nötig", "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -595,8 +595,7 @@ def move_after_processing(input_dir: Path, results: list[dict]):
             pn = r.get("pn", "")
             if pn:
                 tracking.mark_received(fname, pn, "word")
-                
-        elif r.get("status") == "manuell":
+        elif r.get("status") in ("manuell", "prüfung_nötig"):
             dst = _unique_path(manuell_dir, fname)
             shutil.move(str(src), str(dst))
             moved_man += 1
@@ -635,6 +634,24 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
     out_root = Path(out_root)
     tracking = SimpleTrackingSystem()
 
+    def _ensure_pn_suffix(filename: str, pn: str) -> str:
+        """Hängt _<pn> vor die .pdf-Endung, falls noch nicht vorhanden.
+        Verändert den Rest des Namens nicht.
+        """
+        if not pn:
+            return filename
+        stem, ext = Path(filename).stem, Path(filename).suffix
+        if ext.lower() != ".pdf":
+            ext = Path(filename).suffix  # unberührt
+        # Bereits korrekt am Ende?
+        if re.search(rf"_(?:{re.escape(pn)})$", stem):
+            return filename
+        # Falls Stem bereits mit PN endet (ohne Unterstrich), trotzdem standardisieren
+        if re.search(rf"(?:^|[^0-9]){re.escape(pn)}$", stem):
+            # entferne evtl. vorhandenes PN am Ende ohne Unterstrich
+            stem = re.sub(rf"{re.escape(pn)}$", "", stem).rstrip("_")
+        return f"{stem}_{pn}{ext}"
+
     for pdf_path in in_dir.glob("*.pdf"):
         fname = pdf_path.name
         norm = _normalize(fname)
@@ -660,29 +677,15 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             pn_match = re.search(r'(?:^|_)(\d{6})(?:_|\.|$)', fname)
             pn = pn_match.group(1) if pn_match else ""
 
-            if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
-                row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
-                nachname, vorname = row["Nachname"], row["Rufname"]
-
-                if typ in ("Rückblick", "Ausblick"):
-                    jahr = pd.Timestamp.today().year
-                    target_name = f"{nachname}_{vorname}_{typ}_{jahr}_{pn}.pdf"
-
-                elif typ == "Feedback":
-                    target_name = f"Vorlage_Feedback_an_{nachname}_{vorname}_{pn}.pdf"
-
-                elif typ == "Probezeit":
-                    target_name = f"{nachname}_{vorname}_Probezeit_{pn}.pdf"
-            else:
-                status = "manuell"
+            if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
+                status = "prüfung_nötig"
                 target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
 
             # Zielpfad festlegen
             target_dir.mkdir(parents=True, exist_ok=True)
-            if target_name:
-                dest = target_dir / target_name
-            else:
-                dest = target_dir / fname
+            # Grundsätzlich Beschriftung nicht ändern, nur PN am Ende sicherstellen
+            ensured_name = _ensure_pn_suffix(fname, pn)
+            dest = target_dir / ensured_name
 
             # Duplikat-Erkennung (nur für Rückblick/Ausblick)
             if typ in ("Rückblick", "Ausblick") and pn:
@@ -692,7 +695,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
-                    status = "manuell"
+                    status = "prüfung_nötig"
                     target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
@@ -716,7 +719,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     doc_type = f"{typ} PDF"
                     is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
                     if is_duplicate:
-                        status = "manuell"
+                        status = "prüfung_nötig"
                         target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
@@ -734,7 +737,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         continue
                 else:
                     # Keine SAP-Daten gefunden
-                    status = "manuell"
+                    status = "prüfung_nötig"
                     target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
@@ -767,15 +770,18 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 name = f"{row.get('Rufname','')} {row.get('Nachname','')}".strip()
 
             # Tracking-System aktualisieren für erfolgreiche Verarbeitung
-            if status == "ok" and typ in ("Rückblick", "Ausblick") and pn:
-                # VG-PN ermitteln
-                vg_pn = ""
-                if pn and pn in sap_df["ID_NO_ZERO"].astype(str).values:
-                    row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
-                    vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
-                
-                doc_type = f"{typ} PDF"
-                tracking.mark_received(vg_pn, pn, doc_type)
+            if status == "ok" and pn:
+                if typ in ("Rückblick", "Ausblick"):
+                    # VG-PN ermitteln
+                    vg_pn = ""
+                    if pn in sap_df["ID_NO_ZERO"].astype(str).values:
+                        row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
+                        vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
+                    doc_type = f"{typ} PDF"
+                    tracking.mark_received(vg_pn, pn, doc_type)
+                elif typ == "Feedback":
+                    # Für Feedback ist PN die VG-PN
+                    tracking.mark_received(pn, "", "Feedback PDF")
 
             results.append({
                 "file": fname,
@@ -783,7 +789,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "pn": pn,
                 "name": name,
                 "status": status,
-                "reason": "" if status == "ok" else "PN nicht in SAP-Daten gefunden" if not pn else "Unbekannter Fehler",
+                "reason": "" if status == "ok" else ("PN nicht in SAP-Daten gefunden" if not pn else "Prüfung nötig"),
                 "target": str(dest),
                 "extras": {"all_tags": {}}
             })
@@ -794,7 +800,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "typ": typ or "Unbekannt",
                 "pn": "",
                 "name": "",
-                "status": "manuell",
+                "status": "prüfung_nötig",
                 "reason": f"Fehler bei Verarbeitung: {e}",
                 "target": "",
                 "extras": {"all_tags": {}}
