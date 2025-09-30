@@ -125,6 +125,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             name = (tags.get("rb_name") or "").strip()
             pn   = (tags.get("rb_pn") or "").strip()
             if not name or not pn:
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("rb_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "Pflichtfelder rb_name/rb_pn fehlen")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "Pflichtfelder rb_name/rb_pn fehlen", "extras": {"all_tags": tags}
@@ -133,6 +141,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
 
             sap_row = _pn_in_sap(pn, sap_idx)
             if sap_row is None:
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("rb_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "PN nicht in SAP gefunden")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
@@ -140,6 +156,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 continue
 
             if not _name_matches(name, sap_row):
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("rb_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "Name passt nicht zu SAP")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
@@ -149,6 +173,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             gi_disp = (tags.get("rb_gesamteindruck") or "").strip()
             gi_code = map_rb_gesamteindruck(gi_disp) if gi_disp else ""
             if not gi_code:
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("rb_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "rb_gesamteindruck fehlt/ungültig")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "prüfung_nötig", "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
@@ -162,6 +194,11 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             doc_type = "Rückblick Word"
             is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type, vg_pn)
             if is_duplicate:
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", f"Duplikat: {warning}")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
@@ -182,6 +219,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             name = (tags.get("ab_name") or "").strip()
             pn   = (tags.get("ab_pn") or "").strip()
             if not name or not pn:
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("ab_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "Pflichtfelder ab_name/ab_pn fehlen")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "Pflichtfelder ab_name/ab_pn fehlen", "extras": {"all_tags": tags}
@@ -190,6 +235,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
 
             sap_row = _pn_in_sap(pn, sap_idx)
             if sap_row is None:
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("ab_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "PN nicht in SAP gefunden")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
@@ -197,6 +250,14 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 continue
 
             if not _name_matches(name, sap_row):
+                # VG-PN aus Tags extrahieren für Tracking
+                vg_pn = (tags.get("ab_pn_vg") or "").strip()
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "Name passt nicht zu SAP")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
@@ -210,6 +271,11 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             doc_type = "Ausblick Word"
             is_duplicate, warning = tracking.check_duplicate(p.name, pn, doc_type, vg_pn)
             if is_duplicate:
+                # Tracking: Markiere als empfangen aber fehlerhaft
+                if vg_pn and pn:
+                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", f"Duplikat: {warning}")
+                
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
                     "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
@@ -556,7 +622,7 @@ def move_after_processing(input_dir: Path, results: list[dict]):
     """
     Verschiebt Dateien je nach Status:
       - OK  -> /ruecklauf/verarbeitet
-      - manuell -> /ruecklauf/manuell
+      - manuell -> /ruecklauf/unverarbeitet/manuell
     Achtung: nur DOCX (hier); PDFs kommen im separaten Schritt.
     """
     verarbeitet_dir = input_dir / "verarbeitet"
@@ -680,6 +746,23 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
                 status = "prüfung_nötig"
                 target_dir = Path(__file__).parent.parent / "ruecklauf" / "manuell"  # Projekt-Verzeichnis für manuelle Prüfung
+                
+                # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
+                if pn and typ in ("Rückblick", "Ausblick"):
+                    # Versuche VG-PN zu finden, auch wenn PN nicht in SAP ist
+                    vg_pn = ""
+                    try:
+                        # Suche nach ähnlichen PN in SAP (falls PN leicht abweicht)
+                        similar_pns = sap_df[sap_df["ID_NO_ZERO"].astype(str).str.contains(pn, na=False)]
+                        if not similar_pns.empty:
+                            vg_pn = str(similar_pns.iloc[0].get("Dir. Vorgesetzter (PN)", "")).strip()
+                    except:
+                        pass
+                    
+                    if vg_pn:
+                        doc_type = f"{typ} PDF"
+                        tracking.mark_received(vg_pn, pn, doc_type)
+                        tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
 
             # Zielpfad festlegen
             target_dir.mkdir(parents=True, exist_ok=True)
@@ -700,6 +783,14 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
+                    
+                    # Tracking: Markiere als empfangen aber fehlerhaft
+                    vg_pn = str(matching_rows.iloc[0].get("Dir. Vorgesetzter (PN)", "")).strip()
+                    if vg_pn:
+                        doc_type = f"{typ} PDF"
+                        tracking.mark_received(vg_pn, pn, doc_type)
+                        tracking.mark_error(fname, pn, doc_type, f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden")
+                    
                     results.append({
                         "file": fname,
                         "typ": typ,
@@ -724,6 +815,12 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(pdf_path), dest)
+                        
+                        # Tracking: Markiere als empfangen aber fehlerhaft
+                        if vg_pn:
+                            tracking.mark_received(vg_pn, pn, doc_type)
+                            tracking.mark_error(fname, pn, doc_type, f"Duplikat: {warning}")
+                        
                         results.append({
                             "file": fname,
                             "typ": typ,
@@ -742,6 +839,24 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
+                    
+                    # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
+                    if pn and typ in ("Rückblick", "Ausblick"):
+                        # Versuche VG-PN zu finden, auch wenn PN nicht in SAP ist
+                        vg_pn = ""
+                        try:
+                            # Suche nach ähnlichen PN in SAP (falls PN leicht abweicht)
+                            similar_pns = sap_df[sap_df["ID_NO_ZERO"].astype(str).str.contains(pn, na=False)]
+                            if not similar_pns.empty:
+                                vg_pn = str(similar_pns.iloc[0].get("Dir. Vorgesetzter (PN)", "")).strip()
+                        except:
+                            pass
+                        
+                        if vg_pn:
+                            doc_type = f"{typ} PDF"
+                            tracking.mark_received(vg_pn, pn, doc_type)
+                            tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
+                    
                     results.append({
                         "file": fname,
                         "typ": typ,

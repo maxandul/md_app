@@ -10,7 +10,7 @@ paths:
     root: "../ruecklauf"
     unverarbeitet: "../ruecklauf/unverarbeitet"
     verarbeitet: "../ruecklauf/verarbeitet"
-    manuell: "../ruecklauf/manuell"
+    manuell: "../ruecklauf/unverarbeitet/manuell"
     feedbacks: "../ruecklauf/feedbacks"
   tracking_dir: "../tracking"
   versand_log: "../tracking/versand_log.csv"

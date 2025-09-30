@@ -20,6 +20,7 @@ from datetime import date
 import os
 import win32com.client
 import pandas as pd
+import tkinter.font as tkfont
 
 from .data_loader import load_employees, load_config, build_manager_index
 from .utils import create_info_button
@@ -247,7 +248,12 @@ class App(tk.Tk):
                     "Kein gültiger Wert in 'Dir. Vorgesetzter (PN)'"
                 ])
 
-    
+        # Auto-Resize für Stammdatenbäume
+        try:
+            self._autosize_tree_columns(self.tree_checks)
+            self._autosize_tree_columns(self.tree_findings)
+        except Exception:
+            pass
 
     # ---------------------------
     # VERSAND
@@ -950,6 +956,37 @@ class App(tk.Tk):
         for c in tree["columns"]:
             tree.heading(c, command=lambda _c=c: _sort(_c, False))
 
+    def _autosize_tree_columns(self, tree: ttk.Treeview, min_width: int = 80, max_width: int = 420, padding: int = 24) -> None:
+        """Passt Spaltenbreiten eines Treeviews an Inhalte und Header an."""
+        try:
+            font = tkfont.nametofont(tree.cget("font")) if tree.cget("font") else tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            font = tkfont.nametofont("TkDefaultFont")
+
+        columns = list(tree.cget("columns") or [])
+        items = tree.get_children("")
+        for col in columns:
+            header_text = tree.heading(col).get("text", "")
+            width = font.measure(header_text)
+
+            try:
+                col_index = columns.index(col)
+            except ValueError:
+                col_index = None
+
+            if col_index is not None:
+                for iid in items:
+                    values = tree.item(iid, "values")
+                    if col_index < len(values):
+                        cell_text = str(values[col_index])
+                        width = max(width, font.measure(cell_text))
+
+            col_max = max_width
+            if col in ("Datei", "Ziel", "Zielordner", "Betreff"):
+                col_max = max(max_width, 520)
+
+            final_width = max(min_width, min(width + padding, col_max))
+            tree.column(col, width=final_width, stretch=True, anchor="w")
 
     def on_scan_real(self):
         """Scan der Shared Mailbox 'VD-GS HR' und Verarbeitung nach Regeln"""
@@ -1064,6 +1101,14 @@ class App(tk.Tk):
         if hasattr(self, "inbox_status"):
             self.inbox_status.config(text="Bereit.", foreground="gray")
 
+        # Nach dem Scan: Spaltenbreiten der Inbox-Tabellen anpassen
+        try:
+            self._autosize_tree_columns(self.tree_ok)
+            self._autosize_tree_columns(self.tree_pruefen)
+            self._autosize_tree_columns(self.tree_skip)
+        except Exception:
+            pass
+
     def _get_sender_address(self, mail):
         """Versucht, eine saubere SMTP-Adresse für den Absender zurückzugeben."""
         try:
@@ -1129,7 +1174,7 @@ class App(tk.Tk):
         self.proc_status.grid(row=1, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
         # Überschrift und Erklärung für DOCX-Verarbeitung
-        ttk.Label(self.frame_verarbeitung, text="DOCX-Dokumente (Word-Vorlagen):", 
+        ttk.Label(self.frame_verarbeitung, text="Word-Dokumente:", 
                  font=("TkDefaultFont", 10, "bold")).grid(row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4))
         
         docx_info = ttk.Label(self.frame_verarbeitung, 
@@ -1138,16 +1183,23 @@ class App(tk.Tk):
         docx_info.grid(row=3, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
         # Ergebnis-Tabelle DOCX
-        cols = ["Datei", "Typ", "PN", "Name", "Status", "Grund", "Gesamteindruck (RB)"]
+        cols = ["Datei", "Typ", "PN", "Name", "Status", "Grund", "Ziel"]
         self.tree_proc = ttk.Treeview(self.frame_verarbeitung, columns=cols, show="headings", height=12)
         for c in cols:
             self.tree_proc.heading(c, text=c)
-            self.tree_proc.column(c, width=180 if c not in ("Datei", "Grund") else 260, anchor="w")
+            if c == "Ziel":
+                self.tree_proc.column(c, width=200, anchor="w")
+            elif c in ["PN", "Status"]:
+                self.tree_proc.column(c, width=100, anchor="w")
+            elif c == "Grund":
+                self.tree_proc.column(c, width=260, anchor="w")
+            else:
+                self.tree_proc.column(c, width=180, anchor="w")
         self.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
         self._bind_treeview_sort(self.tree_proc, numeric_like={"PN"})
 
         # Überschrift und Erklärung für PDF-Verarbeitung
-        ttk.Label(self.frame_verarbeitung, text="PDF-Dokumente (eingescannte/konvertierte Dokumente):", 
+        ttk.Label(self.frame_verarbeitung, text="PDF-Dokumente:", 
                  font=("TkDefaultFont", 10, "bold")).grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4))
         
         pdf_info = ttk.Label(self.frame_verarbeitung, 
@@ -1227,15 +1279,29 @@ class App(tk.Tk):
         man_count = 0
 
         for r in results:
-            gi = r["extras"].get("rb_gesamteindruck", "") if isinstance(r.get("extras"), dict) else ""
+            # Ziel-Verzeichnis basierend auf Status bestimmen
+            status = r.get("status", "")
+            if status == "ok":
+                target = "verarbeitet"
+            elif status in ("manuell", "prüfung_nötig"):
+                target = "manuell"
+            else:
+                target = ""
+            
             self.tree_proc.insert("", "end", values=[
                 r.get("file",""), r.get("typ",""), r.get("pn",""), r.get("name",""),
-                r.get("status",""), r.get("reason",""), gi
+                r.get("status",""), r.get("reason",""), target
             ])
             if r.get("status") == "ok":
                 ok_count += 1
             elif r.get("status") == "manuell":
                 man_count += 1
+
+        # Spaltenbreiten an Inhalt anpassen
+        try:
+            self._autosize_tree_columns(self.tree_proc)
+        except Exception:
+            pass
 
         self.proc_status.config(
             text=f"DOCX geprüft: {len(results)} Dateien • OK: {ok_count} • Manuell: {man_count}",
@@ -1341,6 +1407,12 @@ class App(tk.Tk):
                 r.get("reason", ""),
                 r.get("target", "")
             ))
+
+        # Spaltenbreiten an Inhalt anpassen
+        try:
+            self._autosize_tree_columns(self.tree_pdfs)
+        except Exception:
+            pass
 
         from tkinter import messagebox
         messagebox.showinfo("Fertig", f"{len(results)} PDFs verarbeitet.")
