@@ -204,7 +204,13 @@ class SimpleTrackingSystem:
         # Aktualisiere alle angegebenen Spalten
         for column, value in updates.items():
             if column in df.columns:
-                df.loc[mask, column] = value
+                # Explizite dtype-Konvertierung um Future Warning zu vermeiden
+                if column in ["erwartet", "erhalten"]:
+                    # Numerische Spalten
+                    df.loc[mask, column] = int(value) if str(value).isdigit() else value
+                else:
+                    # String-Spalten
+                    df.loc[mask, column] = str(value)
         
         # Speichere zurück
         self._save_log(df)
@@ -236,16 +242,16 @@ class SimpleTrackingSystem:
         """Erstellt einen Log-Eintrag."""
         return {
             "log_id": f"L{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{mgr_pn}_{emp_pn}_{doc_type.replace(' ', '_')}",
-            "vg_pn": mgr_pn,
-            "vg_name": mgr_name,
-            "ma_pn": emp_pn,
-            "ma_name": emp_name,
-            "doc_type": doc_type,
-            "erwartet": erwartet,
-            "erhalten": erhalten,
-            "status": status,
-            "status_grund": status_grund,
-            "versendet_am": timestamp,
+            "vg_pn": str(mgr_pn),
+            "vg_name": str(mgr_name),
+            "ma_pn": str(emp_pn),
+            "ma_name": str(emp_name),
+            "doc_type": str(doc_type),
+            "erwartet": int(erwartet),
+            "erhalten": int(erhalten),
+            "status": str(status),
+            "status_grund": str(status_grund),
+            "versendet_am": str(timestamp),
             "zuletzt_erinnert_am": ""
         }
     
@@ -272,7 +278,21 @@ class SimpleTrackingSystem:
         if not self.log_path.exists():
             return pd.DataFrame()
         
-        return pd.read_csv(self.log_path, sep=";")
+        df = pd.read_csv(self.log_path, sep=";")
+        
+        # Explizite dtype-Konvertierung um Future Warnings zu vermeiden
+        if not df.empty:
+            # Numerische Spalten als int konvertieren
+            for col in ["erwartet", "erhalten"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+            
+            # String-Spalten explizit als string
+            for col in ["vg_pn", "vg_name", "ma_pn", "ma_name", "doc_type", "status", "status_grund", "versendet_am", "zuletzt_erinnert_am"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+        
+        return df
     
     def _save_log(self, df: pd.DataFrame) -> None:
         """Speichert die Log-CSV."""
