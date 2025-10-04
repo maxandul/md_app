@@ -27,7 +27,13 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     from controllers.dashboard_controller import manual_adjustment
     ttk.Button(toolbar, text="Manuelle Anpassung", command=lambda: manual_adjustment(app)).pack(side="left", padx=(0, 8))
     from controllers.dashboard_controller import export_dashboard
-    ttk.Button(toolbar, text="Export CSV", command=lambda: export_dashboard(app)).pack(side="left")
+    ttk.Button(toolbar, text="Export CSV", command=lambda: export_dashboard(app)).pack(side="left", padx=(0, 8))
+    
+    # Erinnerungs-Buttons
+    from controllers.erinnerung_controller import send_reminders, save_reminders_as_draft, preview_reminders
+    ttk.Button(toolbar, text="Erinnerung versenden", command=lambda: send_reminders(app)).pack(side="left", padx=(0, 8))
+    ttk.Button(toolbar, text="Erinnerung als Entwurf speichern", command=lambda: save_reminders_as_draft(app)).pack(side="left", padx=(0, 8))
+    ttk.Button(toolbar, text="Vorschau generieren", command=lambda: preview_reminders(app)).pack(side="left")
 
     # Info-Button
     create_info_button(
@@ -38,7 +44,8 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
             "- 'Aktualisieren' lädt die aktuellen Tracking-Daten.\n"
             "- Filter nach Name (VG/MA) und Status möglich.\n"
             "- 'Manuelle Anpassung' erlaubt Statuskorrekturen je Eintrag.\n"
-            "- 'Export CSV' speichert die aktuell gefilterte Ansicht."
+            "- 'Export CSV' speichert die aktuell gefilterte Ansicht.\n"
+            "- Erinnerungsfunktionen: Zeilen auswählen und Erinnerungsmail senden."
         ),
         side="right",
     )

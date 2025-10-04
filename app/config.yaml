@@ -76,3 +76,19 @@ mail_underjaehrig:
     <p>Hier wie gewünscht die MD-Unterlagen.</p>
 
     <p>Herzliche Grüsse<br>Dein HR-Management</p>
+
+mail_erinnerung:
+  subject_template: "Erinnerung: Fehlende MD-Unterlagen"
+  body_html_template: |
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
+
+    <p>Hallo {rufname},</p>
+
+    <p>uns fehlen noch folgende MD-Unterlagen:</p>
+    <ul>
+    {dokument_liste}
+    </ul>
+
+    <p>Vielen Dank für die Zustellung bis {frist_datum}.</p>
+
+    <p>Herzliche Grüsse<br>Dein HR-Management</p>
