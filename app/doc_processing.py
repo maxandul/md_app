@@ -24,8 +24,9 @@ import pandas as pd
 from typing import Dict, Any
 import shutil
 
-from .docx_tools import read_content_controls, detect_doc_type, map_rb_gesamteindruck
-from .simple_tracking import SimpleTrackingSystem
+from docx_tools import read_content_controls, detect_doc_type, map_rb_gesamteindruck
+from simple_tracking import SimpleTrackingSystem
+from constants import MDConstants, DocType, ProcStatus
 
 # ---------------------------
 # Hilfsfunktionen
@@ -106,7 +107,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
     sap_idx = build_sap_index(sap_df)
     tracking = SimpleTrackingSystem()
 
-    docx_files = sorted(input_dir.glob("*.docx"))
+    docx_files = sorted(input_dir.glob(f"*{MDConstants.ALLOWED_EXTENSIONS[0]}"))
     if max_files is not None:
         docx_files = docx_files[:max_files]
     for p in docx_files:  # nur Top-Level
@@ -115,13 +116,13 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
         except Exception as e:
             results.append({
                 "file": p.name, "typ": "Unbekannt", "pn": "", "name": "",
-                "status": "manuell", "reason": f"DOCX beschädigt/lesefehler: {e}", "extras": {}
+                "status": ProcStatus.MANUELL.value, "reason": f"DOCX beschädigt/lesefehler: {e}", "extras": {}
             })
             continue
 
         typ = detect_doc_type(tags)
 
-        if typ == "Rückblick":
+        if typ == DocType.RUECKBLICK.value:
             name = (tags.get("rb_name") or "").strip()
             pn   = (tags.get("rb_pn") or "").strip()
             if not name or not pn:
@@ -135,7 +136,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "Pflichtfelder rb_name/rb_pn fehlen", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "Pflichtfelder rb_name/rb_pn fehlen", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -151,7 +152,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -166,7 +167,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -183,7 +184,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "prüfung_nötig", "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
+                    "status": ProcStatus.PRUEFUNG_NOETIG.value, "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -201,7 +202,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
             
@@ -211,11 +212,11 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
-                "status": "ok", "reason": "",
+                "status": ProcStatus.OK.value, "reason": "",
                 "extras": {"rb_gesamteindruck": gi_code, "all_tags": tags}
             })
 
-        elif typ == "Ausblick":
+        elif typ == DocType.AUSBLiCK.value:
             name = (tags.get("ab_name") or "").strip()
             pn   = (tags.get("ab_pn") or "").strip()
             if not name or not pn:
@@ -229,7 +230,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "Pflichtfelder ab_name/ab_pn fehlen", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "Pflichtfelder ab_name/ab_pn fehlen", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -245,7 +246,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -260,7 +261,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
                 })
                 continue
 
@@ -278,7 +279,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
-                    "status": "manuell", "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
+                    "status": ProcStatus.MANUELL.value, "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
             
@@ -288,13 +289,13 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
-                "status": "ok", "reason": "", "extras": {"all_tags": tags}
+                "status": ProcStatus.OK.value, "reason": "", "extras": {"all_tags": tags}
             })
 
         else:
             results.append({
                 "file": p.name, "typ": "Unbekannt", "pn": "", "name": "",
-                "status": "manuell", "reason": "Dokumenttyp nicht erkannt (keine rb_/ab_-Tags)", "extras": {"all_tags": tags}
+                "status": ProcStatus.MANUELL.value, "reason": "Dokumenttyp nicht erkannt (keine rb_/ab_-Tags)", "extras": {"all_tags": tags}
             })
 
     # Logging nach ruecklauf/logs/processing_log.csv
@@ -309,7 +310,7 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
     import csv
     from pathlib import Path
 
-    log_dir = Path(__file__).parent.parent / "ruecklauf" / "logs"
+    log_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.LOGS_DIR
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "processing_log.csv"
 
@@ -338,9 +339,9 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
 
             # Bestimme action
             action = "validated"
-            if r.get("status") == "ok":
+            if r.get("status") == ProcStatus.OK.value:
                 action = "exported"
-            elif r.get("status") == "manuell":
+            elif r.get("status") == ProcStatus.MANUELL.value:
                 action = "flagged_manual"
 
             writer.writerow([
@@ -390,13 +391,16 @@ def _parse_date(val: str):
 def _safe_get(tags: dict, key: str) -> str:
     return str(tags.get(key, "") or "").strip()
 
-def _map_beurteilungsart(typ: str) -> str:
-    # einfache Abbildung; feinmapping kannst du bei Bedarf ändern
-    if typ == "Rückblick":
-        return "Rückblick"
-    if typ == "Ausblick":
-        return "Ausblick"
-    return typ
+def _map_beurteilungsart(typ: str | DocType) -> str:
+    """Gibt die Beurteilungsart konsistent als String zurück.
+
+    Unterstützt sowohl DocType-Enum als auch freie Strings.
+    """
+    if isinstance(typ, DocType):
+        return typ.value
+    if typ in (DocType.RUECKBLICK.value, DocType.AUSBLiCK.value):
+        return typ
+    return str(typ)
 
 def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx: Path):
     """
@@ -423,7 +427,7 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
     rows = []
 
     for r in results:
-        if r.get("status") != "ok" or r.get("typ") != "Rückblick":
+        if r.get("status") != ProcStatus.OK.value or r.get("typ") != DocType.RUECKBLICK.value:
             continue
 
         # Tags holen (erst all_tags, sonst tags)
@@ -567,7 +571,7 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
         row = {**base, **tags}
         
         # Extras, die interessant sind
-        if r.get("typ") == "Rückblick":
+        if r.get("typ") == DocType.RUECKBLICK.value:
             row["rb_gesamteindruck_code"] = (r.get("extras", {}) or {}).get("rb_gesamteindruck", "")
         
         # Hierarchie-Informationen hinzufügen
@@ -625,8 +629,8 @@ def move_after_processing(input_dir: Path, results: list[dict]):
       - manuell -> /ruecklauf/unverarbeitet/manuell
     Achtung: nur DOCX (hier); PDFs kommen im separaten Schritt.
     """
-    verarbeitet_dir = input_dir / "verarbeitet"
-    manuell_dir = input_dir / "manuell"
+    verarbeitet_dir = input_dir / MDConstants.VERARBEITET_DIR
+    manuell_dir = input_dir / MDConstants.MANUELL_DIR
     verarbeitet_dir.mkdir(parents=True, exist_ok=True)
     manuell_dir.mkdir(parents=True, exist_ok=True)
     tracking = SimpleTrackingSystem()
@@ -649,10 +653,10 @@ def move_after_processing(input_dir: Path, results: list[dict]):
         if not fname:
             continue
         src = input_dir / fname
-        if not src.exists() or src.suffix.lower() != ".docx":
+        if not src.exists() or src.suffix.lower() != MDConstants.ALLOWED_EXTENSIONS[0]:
             continue
 
-        if r.get("status") == "ok":
+        if r.get("status") == ProcStatus.OK.value:
             dst = _unique_path(verarbeitet_dir, fname)
             shutil.move(str(src), str(dst))
             moved_ok += 1
@@ -661,7 +665,7 @@ def move_after_processing(input_dir: Path, results: list[dict]):
             pn = r.get("pn", "")
             if pn:
                 tracking.mark_received(fname, pn, "word")
-        elif r.get("status") in ("manuell", "prüfung_nötig"):
+        elif r.get("status") in (ProcStatus.MANUELL.value, ProcStatus.PRUEFUNG_NOETIG.value):
             dst = _unique_path(manuell_dir, fname)
             shutil.move(str(src), str(dst))
             moved_man += 1
@@ -707,7 +711,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
         if not pn:
             return filename
         stem, ext = Path(filename).stem, Path(filename).suffix
-        if ext.lower() != ".pdf":
+        if ext.lower() != MDConstants.ALLOWED_EXTENSIONS[1]:
             ext = Path(filename).suffix  # unberührt
         # Bereits korrekt am Ende?
         if re.search(rf"_(?:{re.escape(pn)})$", stem):
@@ -718,25 +722,25 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             stem = re.sub(rf"{re.escape(pn)}$", "", stem).rstrip("_")
         return f"{stem}_{pn}{ext}"
 
-    for pdf_path in in_dir.glob("*.pdf"):
+    for pdf_path in in_dir.glob(f"*{MDConstants.ALLOWED_EXTENSIONS[1]}"):
         fname = pdf_path.name
         norm = _normalize(fname)
         target_dir = out_root
         target_name = None
         status = "ok"
-        typ = None
+        typ: DocType | None = None
 
         try:
             # Typ bestimmen
-            if "ruckblick" in norm:
-                typ = "Rückblick"
-            elif "ausblick" in norm:
-                typ = "Ausblick"
-            elif "feedback" in norm:
-                typ = "Feedback"
-            elif "probezeit" in norm:
-                typ = "Probezeit"
-                target_dir = out_root / "ruecklauf_probezeit"
+            if MDConstants.MD_KEYWORDS[0] in norm or MDConstants.MD_KEYWORDS[1] in norm:
+                typ = DocType.RUECKBLICK
+            elif MDConstants.MD_KEYWORDS[2] in norm:
+                typ = DocType.AUSBLiCK
+            elif MDConstants.MD_KEYWORDS[3] in norm:
+                typ = DocType.FEEDBACK
+            elif MDConstants.PROBEZEIT_KEYWORD in norm:
+                typ = DocType.PROBEZEIT
+                # Kein spezieller Probezeit-Ordner: bleibt im Standardziel
 
             # PN aus Dateiname ziehen (6-stellige Zahl, meist am Ende)
             # Sucht nach 6-stelligen Zahlen, isoliert oder mit _ davor/danach
@@ -744,11 +748,11 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             pn = pn_match.group(1) if pn_match else ""
 
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
-                status = "prüfung_nötig"
-                target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
+                status = ProcStatus.PRUEFUNG_NOETIG.value
+                target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
-                if pn and typ in ("Rückblick", "Ausblick"):
+                if pn and typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
                     # Versuche VG-PN zu finden, auch wenn PN nicht in SAP ist
                     vg_pn = ""
                     try:
@@ -760,7 +764,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         pass
                     
                     if vg_pn:
-                        doc_type = f"{typ} PDF"
+                        doc_type = f"{typ.value} PDF"
                         tracking.mark_received(vg_pn, pn, doc_type)
                         tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
 
@@ -771,15 +775,15 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             dest = target_dir / ensured_name
 
             # Duplikat-Erkennung (nur für Rückblick/Ausblick)
-            if typ in ("Rückblick", "Ausblick") and pn:
+            if typ in (DocType.RUECKBLICK, DocType.AUSBLiCK) and pn:
                 # Prüfe auf Mehrfachanstellungen
                 matching_rows = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn]
                 anzahl_anstellungen = len(matching_rows)
                 
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
-                    status = "prüfung_nötig"
-                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
+                    status = ProcStatus.PRUEFUNG_NOETIG.value
+                    target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -787,7 +791,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     # Tracking: Markiere als empfangen aber fehlerhaft
                     vg_pn = str(matching_rows.iloc[0].get("Dir. Vorgesetzter (PN)", "")).strip()
                     if vg_pn:
-                        doc_type = f"{typ} PDF"
+                        doc_type = f"{typ.value} PDF"
                         tracking.mark_received(vg_pn, pn, doc_type)
                         tracking.mark_error(fname, pn, doc_type, f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden")
                     
@@ -796,7 +800,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         "typ": typ,
                         "pn": pn,
                         "name": f"{matching_rows.iloc[0].get('Rufname','')} {matching_rows.iloc[0].get('Nachname','')}".strip(),
-                        "status": "manuell",
+                        "status": ProcStatus.MANUELL.value,
                         "reason": f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden - manuelle Zuordnung erforderlich",
                         "target": str(dest),
                         "extras": {"all_tags": {}, "anzahl_anstellungen": anzahl_anstellungen}
@@ -807,10 +811,10 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     row = matching_rows.iloc[0]
                     vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
                     
-                    doc_type = f"{typ} PDF"
+                    doc_type = f"{typ.value} PDF"
                     is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
                     if is_duplicate:
-                        status = "prüfung_nötig"
+                        status = ProcStatus.PRUEFUNG_NOETIG.value
                         target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
@@ -826,7 +830,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                             "typ": typ,
                             "pn": pn,
                             "name": f"{row.get('Rufname','')} {row.get('Nachname','')}".strip(),
-                            "status": "manuell",
+                            "status": ProcStatus.MANUELL.value,
                             "reason": f"Duplikat: {warning}",
                             "target": str(dest),
                             "extras": {"all_tags": {}}
@@ -834,14 +838,14 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         continue
                 else:
                     # Keine SAP-Daten gefunden
-                    status = "prüfung_nötig"
-                    target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
+                    status = ProcStatus.PRUEFUNG_NOETIG.value
+                    target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
                     
                     # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
-                    if pn and typ in ("Rückblick", "Ausblick"):
+                    if pn and typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
                         # Versuche VG-PN zu finden, auch wenn PN nicht in SAP ist
                         vg_pn = ""
                         try:
@@ -853,16 +857,16 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                             pass
                         
                         if vg_pn:
-                            doc_type = f"{typ} PDF"
+                            doc_type = f"{typ.value} PDF"
                             tracking.mark_received(vg_pn, pn, doc_type)
                             tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
                     
                     results.append({
                         "file": fname,
-                        "typ": typ,
+                        "typ": typ.value if isinstance(typ, DocType) else str(typ),
                         "pn": pn,
                         "name": "",
-                        "status": "manuell",
+                        "status": ProcStatus.MANUELL.value,
                         "reason": "PN nicht in SAP-Daten gefunden",
                         "target": str(dest),
                         "extras": {"all_tags": {}}
@@ -885,16 +889,16 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 name = f"{row.get('Rufname','')} {row.get('Nachname','')}".strip()
 
             # Tracking-System aktualisieren für erfolgreiche Verarbeitung
-            if status == "ok" and pn:
-                if typ in ("Rückblick", "Ausblick"):
+            if status == ProcStatus.OK.value and pn:
+                if typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
                     # VG-PN ermitteln
                     vg_pn = ""
                     if pn in sap_df["ID_NO_ZERO"].astype(str).values:
                         row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
                         vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
-                    doc_type = f"{typ} PDF"
+                    doc_type = f"{typ.value} PDF"
                     tracking.mark_received(vg_pn, pn, doc_type)
-                elif typ == "Feedback":
+                elif typ == DocType.FEEDBACK:
                     # Für Feedback ist PN die VG-PN
                     tracking.mark_received(pn, "", "Feedback PDF")
 
@@ -904,7 +908,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "pn": pn,
                 "name": name,
                 "status": status,
-                "reason": "" if status == "ok" else ("PN nicht in SAP-Daten gefunden" if not pn else "Prüfung nötig"),
+                "reason": "" if status == ProcStatus.OK.value else ("PN nicht in SAP-Daten gefunden" if not pn else "Prüfung nötig"),
                 "target": str(dest),
                 "extras": {"all_tags": {}}
             })
@@ -915,12 +919,12 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "typ": typ or "Unbekannt",
                 "pn": "",
                 "name": "",
-                "status": "prüfung_nötig",
+                "status": ProcStatus.PRUEFUNG_NOETIG.value,
                 "reason": f"Fehler bei Verarbeitung: {e}",
                 "target": "",
                 "extras": {"all_tags": {}}
             })
-            manuell_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
+            manuell_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
             manuell_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(pdf_path), (manuell_dir / fname))
 

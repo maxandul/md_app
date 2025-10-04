@@ -27,9 +27,16 @@ echo Python gefunden! [OK]
 echo.
 
 echo Schritt 2: Pip aktualisieren (bitte warten)...
+echo Versuche Pip-Update mit Proxy...
 python -m pip install --upgrade pip %TRUSTED_HOSTS% --proxy %PROXY_URL% >nul 2>&1
 if errorlevel 1 (
-    echo WARNUNG: Pip konnte nicht aktualisiert werden. Versuche mit bestehender Version...
+    echo WARNUNG: Pip-Update mit Proxy fehlgeschlagen. Versuche ohne Proxy...
+    python -m pip install --upgrade pip %TRUSTED_HOSTS% >nul 2>&1
+    if errorlevel 1 (
+        echo WARNUNG: Pip konnte nicht aktualisiert werden. Versuche mit bestehender Version...
+    ) else (
+        echo Pip aktualisiert (ohne Proxy)! [OK]
+    )
 ) else (
     echo Pip aktualisiert! [OK]
 )
@@ -39,19 +46,29 @@ echo Schritt 3: Benötigte Pakete installieren (bitte warten)...
 echo Dies kann einige Minuten dauern...
 echo.
 
+echo Versuche Installation mit Proxy...
 pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --proxy %PROXY_URL% -r requirements.txt
 if errorlevel 1 (
     echo.
-    echo FEHLER: Installation der Pakete fehlgeschlagen!
-    echo Mögliche Ursachen:
-    echo - Proxy-Verbindung nicht verfügbar
-    echo - Internet-Verbindung unterbrochen
-    echo - Firewall blockiert die Verbindung
-    echo.
-    echo Bitte kontaktiere den IT-Support.
-    echo.
-    pause
-    exit /b 1
+    echo WARNUNG: Installation mit Proxy fehlgeschlagen. Versuche ohne Proxy...
+    pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
+    if errorlevel 1 (
+        echo.
+        echo FEHLER: Installation der Pakete fehlgeschlagen!
+        echo Mögliche Ursachen:
+        echo - Internet-Verbindung unterbrochen
+        echo - Firewall blockiert die Verbindung
+        echo - Proxy-Einstellungen fehlerhaft
+        echo.
+        echo Bitte kontaktiere den IT-Support.
+        echo.
+        pause
+        exit /b 1
+    ) else (
+        echo Pakete erfolgreich installiert (ohne Proxy)! [OK]
+    )
+) else (
+    echo Pakete erfolgreich installiert! [OK]
 )
 
 echo.

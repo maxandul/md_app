@@ -15,10 +15,11 @@ from pathlib import Path
 from datetime import date
 import pandas as pd
 
-from .data_loader import load_config, row_to_context
-from .word_tools import fill_word_template
-from .mail_send import send_mail
-from .utils import date_in_range, last_day_of_month, fixed_filename
+from data_loader import load_config, row_to_context
+from word_tools import fill_word_template
+from mail_send import send_mail
+from utils import date_in_range, last_day_of_month, fixed_filename
+from constants import MDConstants, DocType
 
 CFG = load_config()
 
@@ -43,21 +44,21 @@ def determine_docset(row: pd.Series, today: date) -> list[str]:
     austritt = row.get("Austritt")
     ende_pz = row.get("Ende Probezeit")
 
-    oct1 = date(y, 10, 1)
-    jan_next = date(y + 1, 1, 31)
+    oct1 = date(y, MDConstants.PROBEZEIT_MONTHS[0], 1)
+    jan_next = date(y + 1, MDConstants.PROBEZEIT_MONTHS[3], 31)
     jun1 = date(y, 6, 1)
     sep_end = date(y, 9, last_day_of_month(y, 9))
 
     if date_in_range(austritt, oct1, jan_next):
-        return ["Rückblick"]
+        return [DocType.RUECKBLICK.value]
 
     if date_in_range(ende_pz, oct1, jan_next):
-        return ["Rückblick_Probezeit", "Ausblick"]
+        return [f"{DocType.RUECKBLICK.value}_Probezeit", DocType.AUSBLiCK.value]
 
     if date_in_range(ende_pz, jun1, sep_end):
-        return ["Ausblick"]
+        return [DocType.AUSBLiCK.value]
 
-    return ["Rückblick", "Ausblick"]
+    return [DocType.RUECKBLICK.value, DocType.AUSBLiCK.value]
 
 def build_and_send_for_manager(
     mgr_row: pd.Series,
@@ -73,10 +74,10 @@ def build_and_send_for_manager(
 ):
     tp = CFG["paths"]["templates"]
     tpl_paths = {
-        "Ausblick": Path(__file__).parent / tp["ausblick"],
-        "Rückblick": Path(__file__).parent / tp["rueckblick"],
-        "Rückblick_Probezeit": Path(__file__).parent / tp["rueckblick_probezeit"],
-        "Feedback": Path(__file__).parent / tp["feedback"],
+        DocType.AUSBLiCK.value: Path(__file__).parent / tp["ausblick"],
+        DocType.RUECKBLICK.value: Path(__file__).parent / tp["rueckblick"],
+        f"{DocType.RUECKBLICK.value}_Probezeit": Path(__file__).parent / tp["rueckblick_probezeit"],
+        DocType.FEEDBACK.value: Path(__file__).parent / tp["feedback"],
     }
 
     attachments: list[Path] = []
@@ -111,7 +112,7 @@ def build_and_send_for_manager(
                 nachname_ma=r.get("Nachname",""),
                 vorname_ma=r.get("Rufname",""),
                 pn_ma=r.get("ID_NO_ZERO",""),
-            ) + ".docx"
+            ) + MDConstants.ALLOWED_EXTENSIONS[0]
             out_path = out_dir / fname
             fill_word_template(tpl_paths[typ], ctx, out_path)
             attachments.append(out_path)
@@ -122,11 +123,11 @@ def build_and_send_for_manager(
         fb_ctx["fb_pn_vg"] = mgr_pn
 
         fb_name = (
-            "Vorlage_Feedback_an_"
-            f"{mgr_row.get('Nachname','')}_{mgr_row.get('Rufname','')}_{mgr_pn}.docx"
+            f"{DocType.FEEDBACK_VORLAGE_PREFIX}"
+            f"{mgr_row.get('Nachname','')}_{mgr_row.get('Rufname','')}_{mgr_pn}{MDConstants.ALLOWED_EXTENSIONS[0]}"
         )
         fb_path = out_dir / fb_name
-        fill_word_template(tpl_paths["Feedback"], fb_ctx, fb_path)
+        fill_word_template(tpl_paths[DocType.FEEDBACK.value], fb_ctx, fb_path)
         attachments.append(fb_path)
 
     # Empfänger
