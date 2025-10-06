@@ -10,10 +10,10 @@ from pathlib import Path
 import os
 import win32com.client
 from tkinter import messagebox
-from data_loader import load_config
+from app.data_loader import load_config
 
-from constants import MDConstants, ProcStatus
-from logging_config import get_logger
+from app.constants import MDConstants, ProcStatus
+from app.logging_config import get_logger
 logger = get_logger()
 
 

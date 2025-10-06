@@ -12,9 +12,9 @@ from datetime import date
 import tkinter as tk
 from tkinter import ttk
 
-from data_loader import load_employees, build_manager_index
-from utils import create_info_button
-from constants import MDConstants
+from app.data_loader import load_employees, build_manager_index
+from app.utils import create_info_button
+from app.constants import MDConstants
 
 
 def build_versand(parent: ttk.Frame, app) -> None:
@@ -82,7 +82,7 @@ def build_massenversand(app) -> None:
     app.filter_var = tk.StringVar()
     entry = ttk.Entry(toolbar, textvariable=app.filter_var, width=36)
     entry.pack(side="left", padx=(0, 8))
-    from controllers.versand_controller import refresh_mgr_table
+    from app.controllers.versand_controller import refresh_mgr_table
     entry.bind("<KeyRelease>", lambda e: refresh_mgr_table(app))
 
     create_info_button(
@@ -118,7 +118,7 @@ def build_massenversand(app) -> None:
 
     btn_frame = ttk.Frame(app.frame_massenversand)
     btn_frame.grid(row=3, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
-    from controllers.versand_controller import send_managers, preview_managers
+    from app.controllers.versand_controller import send_managers, preview_managers
     ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_managers(app, mode="send")).pack(side="left")
     ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_managers(app, mode="display")).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_managers(app)).pack(side="left", padx=(8,0))
@@ -209,7 +209,7 @@ def build_einzelversand(app) -> None:
 
     btn_frame = ttk.Frame(app.frame_einzelversand)
     btn_frame.grid(row=6, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
-    from controllers.versand_controller import send_selected_employees, preview_selected
+    from app.controllers.versand_controller import send_selected_employees, preview_selected
     ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_selected_employees(app, mode="send")).pack(side="left")
     ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_selected_employees(app, mode="display")).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_selected(app)).pack(side="left", padx=(8,0))
@@ -225,14 +225,19 @@ def build_einzelversand(app) -> None:
     app.frame_einzelversand.grid_rowconfigure(2, weight=1)
     app.frame_einzelversand.grid_rowconfigure(4, weight=1)
 
-    from controllers.versand_controller import refresh_mgr_table_einzel
+    from app.controllers.versand_controller import refresh_mgr_table_einzel
     refresh_mgr_table_einzel(app)
 
     def _on_mgr_select_einzel(*_):
         sel = app.tree_einzel.selection()
         if not sel:
             return
-        vg_pn = sel[0]
+        # Echte PN aus den Spaltenwerten der ausgewählten Zeile lesen
+        try:
+            values = app.tree_einzel.item(sel[0], "values")
+            vg_pn = str(values[0]) if values else ""
+        except Exception:
+            vg_pn = ""
         pack = app.mgr_index.get(vg_pn)
         if not pack:
             return
@@ -278,7 +283,7 @@ def build_vg_ma_creation(app) -> None:
     app.vg_search_var = tk.StringVar()
     vg_search_entry = ttk.Entry(vg_search_frame, textvariable=app.vg_search_var, width=20)
     vg_search_entry.pack(side="left", padx=(0,8))
-    from controllers.versand_controller import refresh_vg_list, refresh_ma_list
+    from app.controllers.versand_controller import refresh_vg_list, refresh_ma_list
     vg_search_entry.bind("<KeyRelease>", lambda e: refresh_vg_list(app))
     ttk.Button(vg_search_frame, text="Aktualisieren", command=lambda: refresh_vg_list(app)).pack(side="left")
 
@@ -323,7 +328,7 @@ def build_vg_ma_creation(app) -> None:
     refresh_vg_list(app)
     refresh_ma_list(app)
 
-    from controllers.versand_controller import update_selection_status
+    from app.controllers.versand_controller import update_selection_status
     def _on_vg_select(*_):
         update_selection_status(app)
     def _on_ma_select(*_):

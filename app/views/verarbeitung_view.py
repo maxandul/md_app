@@ -11,9 +11,9 @@ from datetime import date
 import tkinter as tk
 from tkinter import ttk
 
-from constants import MDConstants
-from utils import create_info_button
-from data_loader import load_config
+from app.constants import MDConstants
+from app.utils import create_info_button
+from app.data_loader import load_config
 
 
 def build_verarbeitung(parent: ttk.Frame, app) -> None:
@@ -46,7 +46,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
     app.batch_size_var = tk.IntVar(value=MDConstants.PROC_DEFAULT_BATCH)
     ttk.Entry(bar, textvariable=app.batch_size_var, width=6).pack(side="left", padx=(0,12))
 
-    from controllers.verarbeitung_controller import run_full_processing
+    from app.controllers.verarbeitung_controller import run_full_processing
     ttk.Button(bar, text="Verarbeitung starten", command=lambda: run_full_processing(app)).pack(side="left")
 
     # Info-Button

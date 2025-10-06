@@ -12,20 +12,20 @@ import shutil
 import unicodedata
 import pandas as pd
 from typing import Dict, Any
-from logging_config import get_logger
 
-from adapters.docx_reader import read_content_controls, detect_doc_type, map_rb_gesamteindruck
-from services.tracking_service import SimpleTrackingSystem
-from constants import MDConstants, DocType, ProcStatus
-from services.org_structure_service import build_org_structure
-from data_loader import load_employees, load_config
-from views.ui_utils import autosize_tree_columns
-from services.export_service import export_sap_massenupload, export_ds_csv
+from app.logging_config import get_logger
+from app.adapters.docx_reader import read_content_controls, detect_doc_type, map_rb_gesamteindruck
+from app.services.tracking_service import SimpleTrackingSystem
+from app.constants import MDConstants, DocType, ProcStatus
+from app.data_loader import load_employees, load_config
+from app.views.ui_utils import autosize_tree_columns
+from app.services.org_structure_service import build_org_structure
+from app.services.export_service import export_sap_massenupload, export_ds_csv
+from app.services.file_service import move_after_processing
 
 # Konfiguration einmalig laden für zentrale Pfade
 CFG = load_config()
 logger = get_logger()
-from services.file_service import move_after_processing
 
 
 def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:

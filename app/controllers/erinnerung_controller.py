@@ -4,8 +4,8 @@ import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime, timedelta
 
-from constants import MDConstants
-from services.erinnerung_service import ErinnerungService
+from app.constants import MDConstants
+from app.services.erinnerung_service import ErinnerungService
 
 
 def send_reminders(app) -> None:
@@ -35,7 +35,7 @@ def send_reminders(app) -> None:
                 f"Fehler: {result['errors']}"
             )
             # Dashboard aktualisieren um neue Erinnerungsdaten zu zeigen
-            from controllers.dashboard_controller import refresh_dashboard
+            from app.controllers.dashboard_controller import refresh_dashboard
             refresh_dashboard(app)
         else:
             messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Versenden der Erinnerungen: {result['error']}")

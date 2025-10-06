@@ -9,8 +9,8 @@ nutzt weiterhin Callbacks/Methoden der App-Instanz (z. B. `on_check_stammdaten`)
 
 from tkinter import ttk
 
-from utils import create_info_button
-from views.ui_utils import autosize_tree_columns
+from app.utils import create_info_button
+from app.views.ui_utils import autosize_tree_columns
 
 
 def build_stammdaten(parent: ttk.Frame, app) -> None:
@@ -21,7 +21,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
     bar = ttk.Frame(parent)
     bar.grid(row=0, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
 
-    from controllers.stammdaten_controller import check_stammdaten
+    from app.controllers.stammdaten_controller import check_stammdaten
     ttk.Button(bar, text="Aktualisieren", command=lambda: check_stammdaten(app)).pack(side="left")
 
     create_info_button(

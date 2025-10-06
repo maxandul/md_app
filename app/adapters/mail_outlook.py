@@ -2,7 +2,7 @@ from pathlib import Path
 import pythoncom
 import win32com.client as win32
 
-from data_loader import load_config
+from app.data_loader import load_config
 
 CFG = load_config()
 

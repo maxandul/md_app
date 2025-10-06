@@ -11,10 +11,10 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 
-from constants import MDConstants
-from data_loader import load_config
-from utils import create_info_button
-from views.ui_utils import make_tree, bind_treeview_sort, autosize_tree_columns
+from app.constants import MDConstants
+from app.data_loader import load_config
+from app.utils import create_info_button
+from app.views.ui_utils import make_tree, bind_treeview_sort, autosize_tree_columns
 
 
 def build_ruecklauf(parent: ttk.Frame, app) -> None:
@@ -37,7 +37,7 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
         side="right",
     )
 
-    from controllers.ruecklauf_controller import scan_real
+    from app.controllers.ruecklauf_controller import scan_real
     ttk.Button(toolbar, text="Posteingang scannen", command=lambda: scan_real(app)).pack(side="left", padx=(0, 8))
     ttk.Label(toolbar, text="Ziel für neue Anhänge:").pack(side="left", padx=(16,4))
     # Standard-Ziel aus Konfiguration (<root>/ruecklauf/unverarbeitet)

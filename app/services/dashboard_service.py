@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime
 
-from constants import MDConstants, ProcStatus, DashTag
+from app.constants import MDConstants, ProcStatus, DashTag
 
 
 def refresh_dashboard(app) -> None:

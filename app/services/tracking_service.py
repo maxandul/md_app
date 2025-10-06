@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, List
 import csv
 
-from data_loader import load_config
+from app.data_loader import load_config
 
 CFG = load_config()
 
@@ -78,4 +78,58 @@ class SimpleTrackingSystem:
                 writer.writeheader()
             writer.writerow(entry)
 
+
+    # Dashboard-APIs
+    def get_dashboard_data(self, filter_status: str = "") -> pd.DataFrame:
+        """Lädt die Dashboard-Daten aus der Tracking-CSV.
+
+        filter_status: Optionaler Status-Filter (entspricht Werten in 'status').
+        """
+        if not self.log_path.exists():
+            return pd.DataFrame()
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            # Fallback-Encoding
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+
+        # Sicherstellen, dass erwartete Spalten existieren
+        for col in [
+            "log_id","vg_pn","vg_name","ma_pn","ma_name","doc_type",
+            "erwartet","erhalten","status","status_grund","versendet_am","zuletzt_erinnert_am"
+        ]:
+            if col not in df.columns:
+                df[col] = ""
+
+        if filter_status:
+            df = df[df["status"].astype(str).str.strip().str.lower() == str(filter_status).strip().lower()]
+        return df
+
+    def update_entry(self, log_id: str, updates: Dict[str, str]) -> bool:
+        """Aktualisiert Felder eines Eintrags anhand der log_id in der CSV.
+
+        Returns True bei Erfolg, sonst False.
+        """
+        if not self.log_path.exists():
+            return False
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+
+        if "log_id" not in df.columns:
+            return False
+        mask = df["log_id"].astype(str) == str(log_id)
+        if not mask.any():
+            return False
+
+        for key, value in (updates or {}).items():
+            if key not in df.columns:
+                # füge unbekannte Spalten dynamisch hinzu
+                df[key] = ""
+            df.loc[mask, key] = str(value)
+
+        # Speichern mit unverändertem Format
+        df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
+        return True
 

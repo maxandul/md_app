@@ -17,14 +17,15 @@ Autor: VD GS HR
 Version: 1.0
 """
 
-from .main import App
+# Vorsicht: Import von App triggert viele weitere Importe. Für Paket-Importe
+# vermeiden wir Seiteneffekte und exportieren nur Konstanten. Die App sollte
+# über `python -m app.main` oder `from app.main import App` geladen werden.
 from .constants import MDConstants, DocType, ProcStatus, DashTag
 
 __version__ = "1.0.0"
 __author__ = "VD GS HR"
 
 __all__ = [
-    "App",
     "MDConstants", 
     "DocType",
     "ProcStatus",

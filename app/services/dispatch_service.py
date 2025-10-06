@@ -2,11 +2,11 @@ from pathlib import Path
 from datetime import date
 import pandas as pd
 
-from data_loader import load_config, row_to_context
-from word_tools import fill_word_template
-from adapters.mail_outlook import send_mail
-from utils import date_in_range, last_day_of_month, fixed_filename
-from constants import MDConstants, DocType
+from app.data_loader import load_config, row_to_context
+from app.word_tools import fill_word_template
+from app.adapters.mail_outlook import send_mail
+from app.utils import date_in_range, last_day_of_month, fixed_filename
+from app.constants import MDConstants, DocType
 
 CFG = load_config()
 

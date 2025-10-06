@@ -10,9 +10,9 @@ from pathlib import Path
 import shutil
 from typing import Tuple
 
-from constants import MDConstants, ProcStatus
-from services.tracking_service import SimpleTrackingSystem
-from data_loader import load_config
+from app.constants import MDConstants, ProcStatus
+from app.services.tracking_service import SimpleTrackingSystem
+from app.data_loader import load_config
 
 
 def move_after_processing(input_dir: Path, results: list[dict]):

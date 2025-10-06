@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 from typing import Dict, Any
 
-from constants import MDConstants, DocType, ProcStatus
+from app.constants import MDConstants, DocType, ProcStatus
 
 # SAP-Spalten für Export
 SAP_COLS = [
@@ -167,7 +167,7 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
     hierarchy_data = {}
     if sap_df is not None:
         try:
-            from services.org_structure_service import build_org_structure
+            from app.services.org_structure_service import build_org_structure
             org_df = build_org_structure(sap_df)
             # Index für schnelle Suche nach PN
             hierarchy_data = org_df.set_index("Personalnummer").to_dict("index")

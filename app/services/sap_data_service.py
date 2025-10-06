@@ -13,8 +13,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime
 
-from constants import MDConstants, ProcStatus, DashTag
-from data_loader import load_employees, load_config
+from app.constants import MDConstants, ProcStatus, DashTag
+from app.data_loader import load_employees, load_config
 
 
 def check_stammdaten(app) -> None:
@@ -116,7 +116,7 @@ def create_vg_ma_relationship(app) -> None:
     
     try:
         # Lade aktuelle EXPORT.xlsx mit gleicher Normalisierung wie load_employees()
-        from data_loader import load_config
+        from app.data_loader import load_config
         CFG = load_config()
         xlsx_path = Path(__file__).parent.parent / CFG["paths"]["sap_stammdaten"]
         df = pd.read_excel(xlsx_path)
@@ -210,6 +210,7 @@ def refresh_mgr_table(app) -> None:
     for i, (vg_pn, pack) in enumerate(filtered_items):
         mgr = pack["manager"]
         subs_count = len(pack["subs"])
+        # iid darf beliebig sein; PN immer aus values[0] lesen!
         unique_id = f"{vg_pn}_{i}"
         app.tree.insert("", "end", iid=unique_id, values=[
             vg_pn,
@@ -246,6 +247,7 @@ def refresh_mgr_table_einzel(app) -> None:
     for i, (vg_pn, pack) in enumerate(filtered_items):
         mgr = pack["manager"]
         subs_count = len(pack["subs"])
+        # iid darf beliebig sein; PN immer aus values[0] lesen!
         unique_id = f"{vg_pn}_{i}"
         app.tree_einzel.insert("", "end", iid=unique_id, values=[
             vg_pn,

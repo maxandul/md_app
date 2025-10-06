@@ -9,8 +9,8 @@ Hilfsmethoden der App-Instanz (z. B. `on_refresh_dashboard`).
 
 from tkinter import ttk
 
-from constants import MDConstants, ProcStatus, DashTag
-from utils import create_info_button
+from app.constants import MDConstants, ProcStatus, DashTag
+from app.utils import create_info_button
 
 
 def build_dashboard(parent: ttk.Frame, app) -> None:
@@ -22,15 +22,15 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     toolbar = ttk.Frame(parent)
     toolbar.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
-    from controllers.dashboard_controller import refresh_dashboard
+    from app.controllers.dashboard_controller import refresh_dashboard
     ttk.Button(toolbar, text="Aktualisieren", command=lambda: refresh_dashboard(app)).pack(side="left", padx=(0, 8))
-    from controllers.dashboard_controller import manual_adjustment
+    from app.controllers.dashboard_controller import manual_adjustment
     ttk.Button(toolbar, text="Manuelle Anpassung", command=lambda: manual_adjustment(app)).pack(side="left", padx=(0, 8))
-    from controllers.dashboard_controller import export_dashboard
+    from app.controllers.dashboard_controller import export_dashboard
     ttk.Button(toolbar, text="Export CSV", command=lambda: export_dashboard(app)).pack(side="left", padx=(0, 8))
     
     # Erinnerungs-Buttons
-    from controllers.erinnerung_controller import send_reminders, save_reminders_as_draft, preview_reminders
+    from app.controllers.erinnerung_controller import send_reminders, save_reminders_as_draft, preview_reminders
     ttk.Button(toolbar, text="Erinnerung versenden", command=lambda: send_reminders(app)).pack(side="left", padx=(0, 8))
     ttk.Button(toolbar, text="Erinnerung als Entwurf speichern", command=lambda: save_reminders_as_draft(app)).pack(side="left", padx=(0, 8))
     ttk.Button(toolbar, text="Vorschau generieren", command=lambda: preview_reminders(app)).pack(side="left")
@@ -149,7 +149,7 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     app.tree_dashboard.configure(yscrollcommand=scrollbar_dash.set)
 
     # Initial load
-    from controllers.dashboard_controller import refresh_dashboard
+    from app.controllers.dashboard_controller import refresh_dashboard
     refresh_dashboard(app)
 
 

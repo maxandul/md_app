@@ -11,7 +11,7 @@ Treeviews erstellen können.
 from tkinter import ttk
 import tkinter.font as tkfont
 
-from constants import MDConstants
+from app.constants import MDConstants
 
 
 def make_tree(parent: ttk.Frame, cols: list[str], bind_sort) -> ttk.Treeview:

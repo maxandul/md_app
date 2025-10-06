@@ -16,14 +16,14 @@ from tkinter import messagebox, ttk
 from datetime import date
 import pandas as pd
 
-from constants import MDConstants, ProcStatus
-from logging_config import get_logger
+from app.constants import MDConstants, ProcStatus
+from app.logging_config import get_logger
 logger = get_logger()
-from services.dispatch_service import build_and_send_for_manager
-from data_loader import load_employees, build_manager_index, load_config
-from views.ui_utils import autosize_tree_columns
+from app.services.dispatch_service import build_and_send_for_manager
+from app.data_loader import load_employees, build_manager_index, load_config
+from app.views.ui_utils import autosize_tree_columns
 
-def send_managers(app) -> None:
+def send_managers(app, mode: str | None = None) -> None:
     """Sendet MD-Dokumente an ausgewählte Vorgesetzte."""
     selected_items = app.tree.selection()
     if not selected_items:
@@ -41,7 +41,12 @@ def send_managers(app) -> None:
         sent_count = 0
         logger.info("Versand gestartet", extra={"count_selected": len(selected_items)})
         for item_id in selected_items:
-            vg_pn = item_id
+            # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
+            try:
+                values = app.tree.item(item_id, "values")
+                vg_pn = str(values[0]) if values else ""
+            except Exception:
+                vg_pn = ""
             if vg_pn not in app.mgr_index:
                 continue
                 
@@ -62,7 +67,7 @@ def send_managers(app) -> None:
                     out_root=out_root,
                     managers_index=app.mgr_index,
                     include_feedback=app.var_rb.get(),
-                    send_mode=None
+                    send_mode=mode
                 )
                 sent_count += 1
             except Exception as e:
@@ -76,7 +81,7 @@ def send_managers(app) -> None:
         raise
 
 
-def send_selected_employees(app) -> None:
+def send_selected_employees(app, mode: str | None = None) -> None:
     """Sendet MD-Dokumente an ausgewählte Mitarbeiter."""
     selected_items = app.tree_einzel.selection()
     if not selected_items:
@@ -94,7 +99,12 @@ def send_selected_employees(app) -> None:
         sent_count = 0
         logger.info("Einzelversand gestartet", extra={"count_selected": len(selected_items)})
         for item_id in selected_items:
-            vg_pn = item_id
+            # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
+            try:
+                values = app.tree_einzel.item(item_id, "values")
+                vg_pn = str(values[0]) if values else ""
+            except Exception:
+                vg_pn = ""
             if vg_pn not in app.mgr_index:
                 continue
                 
@@ -115,7 +125,7 @@ def send_selected_employees(app) -> None:
                     out_root=out_root,
                     managers_index=app.mgr_index,
                     include_feedback=app.var_rb.get(),
-                    send_mode=None
+                    send_mode=mode
                 )
                 sent_count += 1
             except Exception as e:
@@ -136,7 +146,12 @@ def preview_managers(app) -> None:
     preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
     
     for item_id in selected_items:
-        vg_pn = item_id
+        # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
+        try:
+            values = app.tree.item(item_id, "values")
+            vg_pn = str(values[0]) if values else ""
+        except Exception:
+            vg_pn = ""
         if vg_pn not in app.mgr_index:
             continue
             
@@ -180,7 +195,12 @@ def preview_selected(app) -> None:
     preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
     
     for item_id in selected_items:
-        vg_pn = item_id
+        # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
+        try:
+            values = app.tree_einzel.item(item_id, "values")
+            vg_pn = str(values[0]) if values else ""
+        except Exception:
+            vg_pn = ""
         if vg_pn not in app.mgr_index:
             continue
             
@@ -272,7 +292,13 @@ def send_managers(app, mode: str | None = None) -> None:
 
     errors: list[str] = []
     done = 0
-    for vg_pn in sel:
+    for item_id in sel:
+        # Echtes VG-PN aus den Spaltenwerten lesen (iid kann "<PN>_<index>" sein)
+        try:
+            _mgr_values = app.tree.item(item_id, "values")
+            vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+        except Exception:
+            vg_pn = ""
         pack = app.mgr_index.get(vg_pn)
         if not pack:
             errors.append(f"Kein Paket für VG_PN {vg_pn}")
@@ -375,7 +401,12 @@ def send_selected_employees(app, mode: str | None = None) -> None:
     sel_mgrs = app.tree_einzel.selection()
     if len(sel_mgrs) != 1:
         raise ValueError("Bitte genau eine/n Vorgesetzte/n auswählen.")
-    vg_pn = sel_mgrs[0]
+    # Echtes VG-PN aus den Spaltenwerten lesen
+    try:
+        _mgr_values = app.tree_einzel.item(sel_mgrs[0], "values")
+        vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+    except Exception:
+        vg_pn = ""
     pack = app.mgr_index.get(vg_pn)
     if not pack:
         raise LookupError(f"Kein Paket für VG_PN {vg_pn}")
@@ -384,8 +415,16 @@ def send_selected_employees(app, mode: str | None = None) -> None:
     sel_subs = app.subs_tree.selection()
     if not sel_subs:
         raise ValueError("Bitte mindestens eine/n Mitarbeitende/n auswählen.")
-
-    sel_pns = set(sel_subs)
+    # Aus den ausgewählten MA-Zeilen die echte PN aus values[0] lesen
+    sel_pns: set[str] = set()
+    for iid in sel_subs:
+        try:
+            vals = app.subs_tree.item(iid, "values")
+            pn_val = str(vals[0]) if vals else ""
+        except Exception:
+            pn_val = ""
+        if pn_val:
+            sel_pns.add(pn_val)
     if "ID_NO_ZERO" not in subs.columns:
         raise ValueError("Stammdaten enthalten keine Spalte ID_NO_ZERO.")
     subs_filtered = subs[subs["ID_NO_ZERO"].astype(str).isin(sel_pns)]
@@ -473,7 +512,12 @@ def preview_managers(app) -> None:
     sel = app.tree.selection()
     if not sel:
         raise ValueError("Bitte mindestens eine/n Vorgesetzte/n auswählen.")
-    vg_pn = sel[0]
+    # Echtes VG-PN aus den Spaltenwerten lesen
+    try:
+        _mgr_values = app.tree.item(sel[0], "values")
+        vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+    except Exception:
+        vg_pn = ""
     pack = app.mgr_index.get(vg_pn)
     if not pack or pack.get("manager") is None:
         raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
@@ -485,7 +529,7 @@ def preview_managers(app) -> None:
     rb_year = app.rb_year_var.get()
     ab_year = app.ab_year_var.get()
 
-    from data_loader import load_config
+    from app.data_loader import load_config
     CFG = load_config()
     subject_tpl = CFG.get("mail", {}).get("subject_template", "MD-Unterlagen Durchlauf {rb_year}/{ab_year}")
     body_tpl = CFG.get("mail", {}).get("body_html_template", "")
@@ -498,7 +542,12 @@ def preview_selected(app) -> None:
     sel_mgrs = app.tree_einzel.selection()
     if len(sel_mgrs) != 1:
         raise ValueError("Bitte genau eine/n Vorgesetzte/n auswählen.")
-    vg_pn = sel_mgrs[0]
+    # Echtes VG-PN aus den Spaltenwerten lesen
+    try:
+        _mgr_values = app.tree_einzel.item(sel_mgrs[0], "values")
+        vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+    except Exception:
+        vg_pn = ""
     pack = app.mgr_index.get(vg_pn)
     if not pack or pack.get("manager") is None:
         raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
@@ -510,7 +559,7 @@ def preview_selected(app) -> None:
     rb_year = app.rb_year_var_einzel.get()
     ab_year = app.ab_year_var_einzel.get()
 
-    from data_loader import load_config
+    from app.data_loader import load_config
     CFG = load_config()
     subject_tpl = CFG.get("mail_underjaehrig", {}).get("subject_template", "MD-Unterlagen")
     body_tpl = CFG.get("mail_underjaehrig", {}).get("body_html_template", "")
