@@ -624,7 +624,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         tracking.mark_received(vg_pn, pn, doc_type)
                         tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
 
-            # Zielpfad festlegen
+            # Zielpfad festlegen (vorläufig)
             target_dir.mkdir(parents=True, exist_ok=True)
             # Grundsätzlich Beschriftung nicht ändern, nur PN am Ende sicherstellen
             ensured_name = _ensure_pn_suffix(fname, pn)
@@ -735,6 +735,16 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 stem, ext = dest.stem, dest.suffix
                 dest = target_dir / f"{stem}_{counter}{ext}"
                 counter += 1
+
+            # Business-Logik für Zielordner bei erfolgreichen PDFs:
+            # - Rückblick/Ausblick: in RPA-Ziel (out_root)
+            # - Feedback: in projektweiten Ordner ruecklauf/feedbacks
+            if status == ProcStatus.OK.value and typ == DocType.FEEDBACK:
+                fb_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / "feedbacks"
+                fb_dir.mkdir(parents=True, exist_ok=True)
+                # PN ggf. am Ende sicherstellen
+                ensured_name = _ensure_pn_suffix(fname, pn)
+                dest = fb_dir / ensured_name
 
             shutil.move(str(pdf_path), dest)
 

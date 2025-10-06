@@ -33,11 +33,13 @@ def seed_logging_data(num_managers: int = 2, employees_per_manager: int = 3,
             emp_name = f"MA{m}{e} Beispiel"
 
             # Mische Dokumenttypen: alle haben Rückblick, einige haben Ausblick, selten Probezeit
+            # HINWEIS: rueckblick_probezeit wird nicht im Tracking erfasst (separater Prozess)
             doc_types: list[str] = ["rueckblick"]
             if e % 2 == 0:
                 doc_types.append("ausblick")
             if e == employees_per_manager and m % 2 == 0:
-                doc_types.append("rueckblick_probezeit")
+                # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                pass
 
             tracking.log_versand(
                 mgr_pn=mgr_pn,

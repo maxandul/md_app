@@ -112,11 +112,40 @@ def scan_real(app) -> None:
 
 
 def _get_sender_address(mail) -> str:
-    """Extrahiert die E-Mail-Adresse des Absenders aus einem Outlook-Mail-Objekt."""
+    """Extrahiert die primäre SMTP-Adresse des Absenders.
+
+    Versucht mehrere Methoden in sinnvoller Reihenfolge, um statt LegacyDN
+    (z. B. "/O=EXCHANGELABS/…") die echte SMTP-Adresse zu erhalten.
+    """
+    # 1) Über Sender -> ExchangeUser -> PrimarySmtpAddress
     try:
-        return str(mail.SenderEmailAddress or mail.SenderName or "Unbekannt")
+        sender = getattr(mail, "Sender", None)
+        if sender and getattr(sender, "AddressEntryUserType", None) == 0:
+            ex_user = sender.GetExchangeUser()
+            if ex_user:
+                addr = getattr(ex_user, "PrimarySmtpAddress", "")
+                if addr:
+                    return str(addr)
     except Exception:
-        return "Unbekannt"
+        pass
+
+    # 2) Über MAPI PropertyAccessor: PR_SMTP_ADDRESS (0x39FE001E)
+    try:
+        prop = mail.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x39FE001E")
+        if prop:
+            return str(prop)
+    except Exception:
+        pass
+
+    # 3) Fallbacks
+    try:
+        if getattr(mail, "SenderEmailAddress", None):
+            return str(mail.SenderEmailAddress)
+        if getattr(mail, "SenderName", None):
+            return str(mail.SenderName)
+    except Exception:
+        pass
+    return "Unbekannt"
 
 
 def process_mail_attachments(mail, base_path: Path) -> tuple[int, int, int, int, int]:

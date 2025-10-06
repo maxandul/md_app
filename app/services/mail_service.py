@@ -23,11 +23,40 @@ from views.ui_utils import autosize_tree_columns
 
 
 def _get_sender_address(mail) -> str:
-    """Extrahiert die E-Mail-Adresse des Absenders aus einem Outlook-Mail-Objekt."""
+    """Extrahiert die primäre SMTP-Adresse des Absenders.
+
+    Versucht mehrere Methoden in sinnvoller Reihenfolge, um statt LegacyDN
+    (z. B. "/O=EXCHANGELABS/…") die echte SMTP-Adresse zu erhalten.
+    """
+    # 1) Über Sender -> ExchangeUser -> PrimarySmtpAddress
     try:
-        return str(mail.SenderEmailAddress or mail.SenderName or "Unbekannt")
+        sender = getattr(mail, "Sender", None)
+        if sender and getattr(sender, "AddressEntryUserType", None) == 0:
+            ex_user = sender.GetExchangeUser()
+            if ex_user:
+                addr = getattr(ex_user, "PrimarySmtpAddress", "")
+                if addr:
+                    return str(addr)
     except Exception:
-        return "Unbekannt"
+        pass
+
+    # 2) Über MAPI PropertyAccessor: PR_SMTP_ADDRESS (0x39FE001E)
+    try:
+        prop = mail.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x39FE001E")
+        if prop:
+            return str(prop)
+    except Exception:
+        pass
+
+    # 3) Fallbacks
+    try:
+        if getattr(mail, "SenderEmailAddress", None):
+            return str(mail.SenderEmailAddress)
+        if getattr(mail, "SenderName", None):
+            return str(mail.SenderName)
+    except Exception:
+        pass
+    return "Unbekannt"
 
 
 def scan_real(app) -> None:
@@ -437,12 +466,14 @@ def send_managers(app, mode: str | None = None) -> None:
                     doc_types.append("ausblick")
 
                 # Probezeit-Rückblick wenn Probezeit Ende zwischen Okt-Jan
+                # HINWEIS: rueckblick_probezeit wird nicht im Tracking erfasst (separater Prozess)
                 if not pd.isna(emp.get("Ende Probezeit")):
                     probezeit_ende = emp.get("Ende Probezeit")
                     if isinstance(probezeit_ende, pd.Timestamp):
                         month = probezeit_ende.month
                         if month in MDConstants.PROBEZEIT_MONTHS:
-                            doc_types.append("rueckblick_probezeit")
+                            # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                            pass
 
                 app.tracking.log_versand(
                     mgr_pn=vg_pn,
@@ -550,7 +581,8 @@ def send_selected_employees(app, mode: str | None = None) -> None:
                 elif ui_type == "Ausblick":
                     doc_types.append("ausblick")
                 elif ui_type == "Rückblick_Probezeit":
-                    doc_types.append("rueckblick_probezeit")
+                    # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                    pass
 
             app.tracking.log_versand(
                 mgr_pn=vg_pn,

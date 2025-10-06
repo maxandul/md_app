@@ -49,9 +49,13 @@ def run_full_processing(app) -> None:
         )
         
         # PDF-Verarbeitung
+        # out_root: nutze config.paths.output_dir falls vorhanden, sonst UI-Wert (rpa_target_var)
+        out_root_cfg = (CFG.get("paths", {}) or {}).get("output_dir")
+        out_root_path = Path(out_root_cfg) if out_root_cfg else Path(app.rpa_target_var.get())
+
         pdf_results = process_pdfs(
             in_dir=input_dir,
-            out_root=Path(CFG["paths"]["output_dir"]),
+            out_root=out_root_path,
             sap_df=sap_df,
             durchlauf_jahr=durchlauf_jahr
         )
@@ -60,15 +64,21 @@ def run_full_processing(app) -> None:
         all_results = docx_results + pdf_results
         
         # Export
+        # Zielpfad SAP-Massenupload: config.paths.sap_massenupload, sonst Default in app/sap_massenupload/massenupload.xlsx
+        sap_massenupload_cfg = (CFG.get("paths", {}) or {}).get("sap_massenupload")
+        sap_massenupload_path = Path(sap_massenupload_cfg) if sap_massenupload_cfg else (Path(__file__).parent.parent / "sap_massenupload" / "massenupload.xlsx")
         export_sap_massenupload(
             results=all_results,
             sap_df=sap_df,
-            out_xlsx=Path(CFG["paths"]["sap_massenupload"])
+            out_xlsx=sap_massenupload_path
         )
         
+        # Zielpfad DS-Export: config.paths.ds_export, sonst Default in app/tracking/ds_export/docx_extract.csv
+        ds_export_cfg = (CFG.get("paths", {}) or {}).get("ds_export")
+        ds_export_path = Path(ds_export_cfg) if ds_export_cfg else (Path(__file__).parent.parent / "tracking" / "ds_export" / "docx_extract.csv")
         export_ds_csv(
             results=all_results,
-            out_csv=Path(CFG["paths"]["ds_export"]),
+            out_csv=ds_export_path,
             sap_df=sap_df
         )
         

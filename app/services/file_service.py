@@ -23,7 +23,9 @@ def move_after_processing(input_dir: Path, results: list[dict]):
     """
     import shutil
     
-    verarbeitet_dir = input_dir / MDConstants.VERARBEITET_DIR
+    # Erfolgreiche DOCX gehen in projektweiten Ordner ruecklauf/verarbeitet (eine Ebene über input_dir)
+    # Manuelle/prüfungsbedürftige bleiben unter ruecklauf/unverarbeitet/manuell (unter input_dir)
+    verarbeitet_dir = input_dir.parent / MDConstants.VERARBEITET_DIR
     manuell_dir = input_dir / MDConstants.MANUELL_DIR
     verarbeitet_dir.mkdir(parents=True, exist_ok=True)
     manuell_dir.mkdir(parents=True, exist_ok=True)

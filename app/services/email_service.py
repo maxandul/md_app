@@ -331,12 +331,14 @@ def send_managers(app, mode: str | None = None) -> None:
                     doc_types.append("ausblick")
 
                 # Probezeit-Rückblick wenn Probezeit Ende zwischen Okt-Jan
+                # HINWEIS: rueckblick_probezeit wird nicht im Tracking erfasst (separater Prozess)
                 if not pd.isna(emp.get("Ende Probezeit")):
                     probezeit_ende = emp.get("Ende Probezeit")
                     if isinstance(probezeit_ende, pd.Timestamp):
                         month = probezeit_ende.month
                         if month in MDConstants.PROBEZEIT_MONTHS:
-                            doc_types.append("rueckblick_probezeit")
+                            # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                            pass
 
                 app.tracking.log_versand(
                     mgr_pn=vg_pn,
@@ -444,7 +446,8 @@ def send_selected_employees(app, mode: str | None = None) -> None:
                 elif ui_type == "Ausblick":
                     doc_types.append("ausblick")
                 elif ui_type == "Rückblick_Probezeit":
-                    doc_types.append("rueckblick_probezeit")
+                    # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                    pass
 
             app.tracking.log_versand(
                 mgr_pn=vg_pn,
