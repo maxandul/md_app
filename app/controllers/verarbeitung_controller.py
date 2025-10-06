@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tkinter import messagebox
 
 from constants import MDConstants, ProcStatus
 from data_loader import load_employees
@@ -10,6 +9,9 @@ from services.document_service import process_docx_folder, process_pdfs
 from services.export_service import export_sap_massenupload, export_ds_csv
 from services.file_service import move_after_processing
 from views.ui_utils import autosize_tree_columns
+from logging_config import get_logger
+
+logger = get_logger()
 
 
 def run_full_processing(app) -> None:
@@ -23,7 +25,7 @@ def run_full_processing(app) -> None:
         input_dir = Path(app.rpa_target_var.get())
         if not input_dir.exists():
             from tkinter import messagebox
-            messagebox.showerror("Fehler", f"Eingangsordner existiert nicht: {input_dir}")
+            messagebox.showerror(MDConstants.MSG_ERROR, f"Eingangsordner existiert nicht: {input_dir}")
             return
         
         # SAP-Daten laden
@@ -37,10 +39,11 @@ def run_full_processing(app) -> None:
         batch_size = app.batch_size_var.get()
         
         # Status-Update
+        logger.info("Verarbeitung gestartet", extra={"input_dir": str(input_dir)})
         app.proc_status.config(text="Verarbeitung läuft...", foreground="blue")
         app.update_idletasks()
         
-        # DOCX-Verarbeitung
+        # DOCX-Verarbeitung (nur Top-Level im projektweiten unverarbeitet-Ordner)
         docx_results = process_docx_folder(
             input_dir=input_dir,
             sap_df=sap_df,
@@ -53,6 +56,7 @@ def run_full_processing(app) -> None:
         out_root_cfg = (CFG.get("paths", {}) or {}).get("output_dir")
         out_root_path = Path(out_root_cfg) if out_root_cfg else Path(app.rpa_target_var.get())
 
+        # PDF-Verarbeitung ebenfalls aus demselben Top-Level-Ordner
         pdf_results = process_pdfs(
             in_dir=input_dir,
             out_root=out_root_path,
@@ -90,6 +94,7 @@ def run_full_processing(app) -> None:
             text=f"Verarbeitung abgeschlossen: {len(all_results)} Dateien, {moved_ok} OK, {moved_man} manuell",
             foreground="green"
         )
+        logger.info("Verarbeitung abgeschlossen", extra={"count": len(all_results), "ok": moved_ok, "manuell": moved_man})
         
         # Treeview aktualisieren
         from views.ui_utils import autosize_tree_columns
@@ -126,5 +131,6 @@ def run_full_processing(app) -> None:
         
     except Exception as e:
         from tkinter import messagebox
-        messagebox.showerror("Fehler", f"Verarbeitung fehlgeschlagen: {e}")
+        messagebox.showerror(MDConstants.MSG_ERROR, f"Verarbeitung fehlgeschlagen: {e}")
         app.proc_status.config(text="Fehler bei der Verarbeitung", foreground="red")
+        logger.error("Verarbeitung fehlgeschlagen", extra={"error": str(e)})

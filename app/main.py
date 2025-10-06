@@ -30,18 +30,39 @@ if __name__ == "__main__":
 
 # Versuche zuerst absolute Imports, dann relative
 try:
-    from data_loader import load_employees, load_config, build_manager_index
+    from data_loader import load_employees, load_config, build_manager_index, validate_config
     from constants import ProcStatus, DashTag, MDConstants
+    from logging_config import setup_logging
     from utils import create_info_button
-    from simple_tracking import SimpleTrackingSystem
+    from services.tracking_service import SimpleTrackingSystem
 except ImportError:
     # Fallback für Modul-Import
-    from .data_loader import load_employees, load_config, build_manager_index
+    from .data_loader import load_employees, load_config, build_manager_index, validate_config
     from .constants import ProcStatus, DashTag, MDConstants
+    from .logging_config import setup_logging
     from .utils import create_info_button
-    from .simple_tracking import SimpleTrackingSystem
+    from .services.tracking_service import SimpleTrackingSystem
 
 CFG = load_config()
+# Logging initialisieren: Konsole + Logdatei unter tracking/app.log
+try:
+    from pathlib import Path as _Path
+    tracking_dir_rel = (CFG.get("paths", {}) or {}).get("tracking_dir", "../tracking")
+    log_dir = (_Path(__file__).parent / tracking_dir_rel).resolve()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = str((log_dir / "app.log").resolve())
+except Exception:
+    log_file = None
+setup_logging(log_level="INFO", log_file=log_file)
+try:
+    validate_config(CFG)
+except Exception as e:
+    # Frühzeitige Nutzerinfo; App startet trotzdem, UI zeigt Fehler bei Nutzung
+    try:
+        from tkinter import messagebox
+        messagebox.showwarning("Konfiguration", f"Hinweis: Konfiguration unvollständig/Prüfung: {e}")
+    except Exception:
+        pass
 
 # Zentrale Konstanten zur Eliminierung von Magic Numbers/Strings
 # Konstanten werden aus .constants importiert (MDConstants)

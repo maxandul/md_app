@@ -18,16 +18,28 @@ Das MD-Prozess-Tool automatisiert die Verwaltung des jährlichen Mitarbeitenden-
 md_app/
 ├── app/                          # Hauptanwendung
 │   ├── main.py                   # GUI-Hauptanwendung (Tkinter)
-│   ├── data_loader.py           # SAP-Datenlade und -verarbeitung
-│   ├── dispatch.py              # Dokumentenversand und -generierung
-│   ├── doc_processing.py        # Dokumentenverarbeitung (DOCX/PDF)
-│   ├── docx_tools.py            # Word-Dokument-Tools
-│   ├── word_tools.py            # Word-Template-Verarbeitung
-│   ├── mail_send.py             # E-Mail-Versand (Outlook)
-│   ├── simple_tracking.py       # Status-Tracking-System
-│   ├── utils.py                 # Hilfsfunktionen
-│   └── config.yaml              # Konfigurationsdatei
-├── templates/                    # Word-Vorlagen
+│   ├── config.yaml              # Konfigurationsdatei
+│   ├── logging_config.py        # Zentrales Logging
+│   ├── exceptions.py            # Eigene Exception-Typen
+│   ├── utils.py                 # Hilfsfunktionen (Dateinamen, Dialoge)
+│   ├── data_loader.py           # Konfiguration & SAP-Daten laden, Validierung
+│   ├── adapters/                # Technische Adapter (COM/Datei)
+│   │   ├── mail_outlook.py      # Outlook E-Mail Versand
+│   │   ├── word_outlook.py      # Word-Template Befüllung
+│   │   └── docx_reader.py       # Lesen von DOCX-Content-Controls
+│   ├── services/                # Geschäftslogik
+│   │   ├── document_service.py  # DOCX/PDF-Verarbeitung, Exporte orchestrieren
+│   │   ├── email_service.py     # Versand-Flows (nutzt dispatch_service)
+│   │   ├── outlook_service.py   # Outlook-Scan (Eingang)
+│   │   ├── dispatch_service.py  # Dokumente generieren & Mail vorbereiten
+│   │   ├── export_service.py    # SAP-/DS-Exporte
+│   │   ├── file_service.py      # Verschiebe-Logik (OK/manuell)
+│   │   ├── sap_data_service.py  # Stammdaten-Prüfungen & UI-Hilfen
+│   │   ├── tracking_service.py  # Einfaches Tracking (CSV)
+│   │   └── org_structure_service.py # Organisationsstruktur (für DS)
+│   ├── controllers/             # UI-Orchestrierung (ruft Services)
+│   └── views/                   # UI-Darstellung
+├── templates/                   # Word-Vorlagen
 │   ├── MD_Ausblick.docx
 │   ├── MD_Feedback.docx
 │   ├── MD_Rückblick.docx
@@ -73,13 +85,16 @@ md_app/
 ### 3. Maileingang verwalten
 - Scannt Outlook-Postfach "VD-GS HR"
 - Erkennt MD-Anhänge automatisch
-- Verschiebt E-Mails nach Verarbeitung
+- Speichert Anhänge nach `<root>/ruecklauf/unverarbeitet`
+
 
 ### 4. MD-Dokumente verarbeiten
-- Verarbeitet DOCX-Dokumente aus `ruecklauf/unverarbeitet/`
-- Extrahiert Daten und validiert gegen SAP
-- Exportiert für SAP-Massenupload und DS-System
-- Verarbeitet PDF-Dokumente
+- Verarbeitet DOCX/PDF aus `<root>/ruecklauf/unverarbeitet` (nur Top-Level)
+- DOCX OK → `<root>/ruecklauf/verarbeitet`
+- PDF Rückblick/Ausblick OK → RPA-Ziel (config `paths.output_dir` oder UI-Feld)
+- PDF Feedback OK → `<root>/ruecklauf/feedbacks`
+- Fehler/Prüfung nötig → `<root>/ruecklauf/unverarbeitet/manuell`
+- Exporte: SAP-Massenupload, DS-Export
 
 ### 5. MD-Dashboard
 - Status-Übersicht aller MD-Dokumente
@@ -89,14 +104,28 @@ md_app/
 
 ## ⚙️ Konfiguration
 
-### config.yaml
+### config.yaml (Auszug)
 ```yaml
 paths:
+  base: ".."
   sap_stammdaten: "../sap_stammdaten/EXPORT.xlsx"
   templates:
     ausblick: "../templates/MD_Ausblick.docx"
     rueckblick: "../templates/MD_Rückblick.docx"
-    # ...
+    rueckblick_probezeit: "../templates/MD_Rückblick_Probezeit.docx"
+    feedback: "../templates/MD_Feedback.docx"
+  ruecklauf:
+    root: "../ruecklauf"
+    unverarbeitet: "../ruecklauf/unverarbeitet"
+    verarbeitet: "../ruecklauf/verarbeitet"
+    manuell: "../ruecklauf/unverarbeitet/manuell"
+    feedbacks: "../ruecklauf/feedbacks"
+    logs_dir: "../ruecklauf/logs"
+  tracking_dir: "../tracking"
+  sap_massenupload: "../app/sap_massenupload/massenupload.xlsx"
+  ds_export: "../app/tracking/ds_export/docx_extract.csv"
+  rpa_input_dir: "K:/VD-GS-PUO-Personal/100 Roboter/Input"
+  output_dir: "K:/VD-GS-PUO-Personal/100 Roboter/Input"
 
 mail:
   send_mode: "display"  # "display" für Test, "send" für Produktiv
@@ -127,12 +156,12 @@ Das System trackt den Status aller MD-Dokumente:
 
 ## 🛠️ Entwicklung
 
-### Code-Struktur:
-- **main.py**: GUI-Hauptanwendung (Tkinter)
-- **data_loader.py**: SAP-Datenverarbeitung
-- **dispatch.py**: Dokumentenversand-Logik
-- **doc_processing.py**: Dokumentenverarbeitung
-- **simple_tracking.py**: Status-Tracking
+### Code-Struktur (vereinfacht):
+- **core**: `data_loader.py`, `logging_config.py`, `constants.py`, `exceptions.py`, `utils.py`
+- **adapters**: Outlook/Word/Docx Anbindung
+- **services**: Geschäftslogik (keine UI)
+- **controllers**: UI-Orchestrierung
+- **views**: UI-Darstellung
 
 ## 🐛 Fehlerbehebung
 

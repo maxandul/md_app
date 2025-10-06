@@ -1,27 +1,39 @@
 from __future__ import annotations
 
-from datetime import date
-from pathlib import Path
-
-import pandas as pd
-from tkinter import messagebox
-
 from constants import MDConstants
-from dispatch import build_and_send_for_manager
-from services.email_service import send_managers, send_selected_employees
-from services.sap_data_service import create_vg_ma_relationship
+from logging_config import get_logger
+
+logger = get_logger()
 
 
 def send_managers(app) -> None:
     """Sendet MD-Dokumente an ausgewählte Vorgesetzte."""
     from services.email_service import send_managers as email_send_managers
-    email_send_managers(app)
+    try:
+        logger.info("Versand: Start send_managers")
+        email_send_managers(app)
+        from tkinter import messagebox
+        messagebox.showinfo(MDConstants.MSG_FINISHED, "Versand abgeschlossen.")
+        logger.info("Versand: Ende send_managers (ok)")
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
+        logger.error("Versand: Fehler send_managers", extra={"error": str(e)})
 
 
 def send_selected_employees(app) -> None:
     """Sendet MD-Dokumente an ausgewählte Mitarbeiter."""
     from services.email_service import send_selected_employees as email_send_selected
-    email_send_selected(app)
+    try:
+        logger.info("Versand: Start send_selected_employees")
+        email_send_selected(app)
+        from tkinter import messagebox
+        messagebox.showinfo(MDConstants.MSG_FINISHED, "Einzelversand abgeschlossen.")
+        logger.info("Versand: Ende send_selected_employees (ok)")
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
+        logger.error("Versand: Fehler send_selected_employees", extra={"error": str(e)})
 
 
 def create_vg_ma_relationship(app) -> None:
@@ -63,16 +75,37 @@ def update_selection_status(app) -> None:
 def preview_managers(app) -> None:
     """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Vorgesetzte."""
     from services.email_service import preview_managers as email_preview_managers
-    email_preview_managers(app)
+    try:
+        logger.info("Versand: Start preview_managers")
+        email_preview_managers(app)
+        logger.info("Versand: Ende preview_managers (ok)")
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
+        logger.error("Versand: Fehler preview_managers", extra={"error": str(e)})
 
 
 def preview_selected(app) -> None:
     """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Mitarbeiter."""
     from services.email_service import preview_selected as email_preview_selected
-    email_preview_selected(app)
+    try:
+        logger.info("Versand: Start preview_selected")
+        email_preview_selected(app)
+        logger.info("Versand: Ende preview_selected (ok)")
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
+        logger.error("Versand: Fehler preview_selected", extra={"error": str(e)})
 
 
 def render_mail_preview(app) -> None:
     """Rendert eine Vorschau der E-Mail-Inhalte."""
     from services.email_service import render_mail_preview as email_render_preview
-    email_render_preview(app)
+    try:
+        logger.info("Versand: Start render_mail_preview")
+        email_render_preview(app)
+        logger.info("Versand: Ende render_mail_preview (ok)")
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
+        logger.error("Versand: Fehler render_mail_preview", extra={"error": str(e)})

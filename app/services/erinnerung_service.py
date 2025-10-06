@@ -11,7 +11,7 @@ from typing import Dict, List, Any
 import pandas as pd
 
 from data_loader import load_config
-from mail_send import send_mail
+from adapters.mail_outlook import send_mail
 from constants import MDConstants
 
 

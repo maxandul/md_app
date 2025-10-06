@@ -9,6 +9,83 @@ def load_config():
 
 CFG = load_config()
 
+
+def validate_config(cfg: dict) -> None:
+    """Validiert zentrale Pfade aus config.yaml und stellt Verzeichnisse sicher.
+
+    - Prüft Existenz von Dateien (sap_stammdaten, Templates)
+    - Legt benötigte Verzeichnisse an (ruecklauf/*, tracking, sap_massenupload, output_dir)
+    - Wirft ValueError bei kritischen Fehlern (fehlende Vorlagen/Excel-Datei)
+    """
+    paths = cfg.get("paths", {}) or {}
+
+    # Projektwurzel relativ zu diesem Modul: eine Ebene über app/
+    base_dir = Path(__file__).parent
+
+    # 1) Pflichtdateien
+    sap_stammdaten = paths.get("sap_stammdaten")
+    if sap_stammdaten:
+        sap_path = (base_dir / sap_stammdaten)
+        if not sap_path.exists():
+            raise ValueError(f"SAP Stammdaten nicht gefunden: {sap_path}")
+
+    templates = paths.get("templates", {}) or {}
+    for key in ("ausblick", "rueckblick", "rueckblick_probezeit", "feedback"):
+        tpl_rel = templates.get(key)
+        if not tpl_rel:
+            raise ValueError(f"Template-Pfad fehlt in config.paths.templates: {key}")
+        tpl_path = (base_dir / tpl_rel)
+        if not tpl_path.exists():
+            raise ValueError(f"Template nicht gefunden ({key}): {tpl_path}")
+
+    # 2) Verzeichnisse anlegen (falls nicht vorhanden)
+    # Ruecklauf-Unterordner
+    ruecklauf = paths.get("ruecklauf", {}) or {}
+    for key in ("root", "unverarbeitet", "verarbeitet", "manuell", "feedbacks", "logs_dir"):
+        rel = ruecklauf.get(key)
+        if rel:
+            (base_dir / rel).mkdir(parents=True, exist_ok=True)
+
+    # Tracking/Exporte
+    for key in ("sap_massenupload_dir", "sap_massenupload_archiv"):
+        rel = paths.get(key)
+        if rel:
+            (base_dir / rel).mkdir(parents=True, exist_ok=True)
+
+    # output_dir (RPA-Ziel) kann auch Netzlaufwerk sein – nur anlegen, wenn lokaler Pfad
+    output_dir = paths.get("output_dir")
+    if output_dir:
+        out_p = base_dir / output_dir
+        try:
+            out_p.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # Falls Netzpfad/kein Schreibrecht: ignorieren; Validierung erfolgt zur Laufzeit
+            pass
+
+    # 3) Schreibbarkeits-Checks für rpa_input_dir und output_dir (nicht fatal für Start, aber Hinweis auslösen)
+    def _check_writable(dir_rel: str) -> None:
+        if not dir_rel:
+            return
+        p = (base_dir / dir_rel)
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            test_file = p / "._write_test.tmp"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("ok")
+            try:
+                test_file.unlink(missing_ok=True)
+            except Exception:
+                # Falls Löschen fehlschlägt, ist das kein Blocker
+                pass
+        except Exception as e:
+            raise ValueError(f"Kein Schreibzugriff auf Verzeichnis: {p} ({e})")
+
+    rpa_input_dir = paths.get("rpa_input_dir")
+    if rpa_input_dir:
+        _check_writable(rpa_input_dir)
+    if output_dir:
+        _check_writable(output_dir)
+
 def load_employees():
     xlsx_path = Path(__file__).parent / CFG["paths"]["sap_stammdaten"]
     # Erst ohne dtype laden, damit fehlende Spalten keinen Absturz verursachen

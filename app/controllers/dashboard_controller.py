@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import pandas as pd
 import tkinter as tk
 from tkinter import messagebox
-from tkinter import ttk
 
-from constants import MDConstants, ProcStatus, DashTag
-from services.dashboard_service import refresh_dashboard, export_dashboard, manual_adjustment
+from constants import MDConstants
 
 
 def refresh_dashboard(app) -> None:
@@ -22,10 +19,18 @@ def refresh_dashboard(app) -> None:
 def export_dashboard(app) -> None:
     """Exportiert die aktuell gefilterten Dashboard-Daten als CSV."""
     from services.dashboard_service import export_dashboard as dashboard_export
-    dashboard_export(app)
+    try:
+        dashboard_export(app)
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, f"Export fehlgeschlagen: {e}")
 
 
 def manual_adjustment(app) -> None:
     """Öffnet einen Dialog zur manuellen Anpassung eines ausgewählten Dashboard-Eintrags."""
     from services.dashboard_service import manual_adjustment as dashboard_manual
-    dashboard_manual(app)
+    try:
+        dashboard_manual(app)
+    except Exception as e:
+        from tkinter import messagebox
+        messagebox.showerror(MDConstants.MSG_ERROR, f"Manuelle Anpassung fehlgeschlagen: {e}")

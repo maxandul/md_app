@@ -167,7 +167,7 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
     hierarchy_data = {}
     if sap_df is not None:
         try:
-            from org_structure import build_org_structure
+            from services.org_structure_service import build_org_structure
             org_df = build_org_structure(sap_df)
             # Index für schnelle Suche nach PN
             hierarchy_data = org_df.set_index("Personalnummer").to_dict("index")

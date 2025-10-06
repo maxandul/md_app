@@ -10,8 +10,11 @@ from pathlib import Path
 import os
 import win32com.client
 from tkinter import messagebox
+from data_loader import load_config
 
 from constants import MDConstants, ProcStatus
+from logging_config import get_logger
+logger = get_logger()
 
 
 def scan_real(app) -> None:
@@ -34,10 +37,18 @@ def scan_real(app) -> None:
     allowed_exts = MDConstants.ALLOWED_EXTENSIONS
     signature_exts = MDConstants.SIGNATURE_EXTENSIONS
 
-    base_path = Path(app.inbox_target_var.get())
+    # Kopierziel aus Konfiguration: <root>/ruecklauf/unverarbeitet
+    CFG = load_config()
+    base_path = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
     base_path.mkdir(parents=True, exist_ok=True)
+    try:
+        # UI-Variable konsistent halten
+        app.inbox_target_var.set(str(base_path.resolve()))
+    except Exception:
+        pass
 
     found = copied = moved = to_check = skipped = 0
+    logger.info("Outlook-Scan gestartet")
 
     for mail in inbox.Items:
         found += 1
@@ -71,7 +82,10 @@ def scan_real(app) -> None:
                     att.SaveAsFile(str(save_path))
                     app.tree_ok.insert("", "end", values=[fname, str(base_path), sender, subject])
                     copied += 1
-            mail.Move(target_folder)
+            try:
+                mail.Move(target_folder)
+            except Exception as e:
+                logger.warning("Mail Move fehlgeschlagen", extra={"error": str(e)})
             moved += 1
 
         elif probezeit_files:
@@ -105,6 +119,7 @@ def scan_real(app) -> None:
             app.inbox_status.config(text=f"Scan läuft... geprüft: {found} • kopiert: {copied} • verschoben: {moved} • prüfen: {to_check} • übersprungen: {skipped}")
             app.update_idletasks()
 
+    logger.info("Outlook-Scan abgeschlossen", extra={"found": found, "copied": copied, "moved": moved, "to_check": to_check, "skipped": skipped})
     app.ruecklauf_status.config(
         text=f"Scan abgeschlossen: {found} Mails • {copied} Anhänge kopiert • {moved} verschoben • {to_check} prüfen • {skipped} übersprungen",
         foreground="black",

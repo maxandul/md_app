@@ -2,19 +2,31 @@
 
 ## 🏗️ Architektur-Übersicht
 
-### Modulstruktur
+### Modulstruktur (nach Konsolidierung)
 ```
 app/
-├── main.py              # GUI-Hauptanwendung (1640 Zeilen)
-├── data_loader.py       # SAP-Datenverarbeitung
-├── dispatch.py          # Dokumentenversand-Logik
-├── doc_processing.py    # Dokumentenverarbeitung (DOCX/PDF)
-├── docx_tools.py       # Word-Dokument-Tools
-├── word_tools.py       # Word-Template-Verarbeitung
-├── mail_send.py        # E-Mail-Versand (Outlook)
-├── simple_tracking.py  # Status-Tracking-System
-├── utils.py            # Hilfsfunktionen
-└── config.yaml         # Konfigurationsdatei
+├── main.py                # GUI-Hauptanwendung (Tkinter)
+├── config.yaml            # Konfiguration (Pfade, Mailtexte)
+├── logging_config.py      # Logging
+├── exceptions.py          # Domänenspezifische Exceptions
+├── utils.py               # Hilfsfunktionen
+├── data_loader.py         # Config laden + Validierung, SAP-Daten lesen
+├── adapters/
+│   ├── mail_outlook.py    # Outlook-Adapter
+│   ├── word_outlook.py    # Word-Adapter
+│   └── docx_reader.py     # DOCX-Reader
+├── services/
+│   ├── document_service.py
+│   ├── email_service.py
+│   ├── outlook_service.py
+│   ├── dispatch_service.py
+│   ├── export_service.py
+│   ├── file_service.py
+│   ├── sap_data_service.py
+│   ├── tracking_service.py
+│   └── org_structure_service.py
+├── controllers/
+└── views/
 ```
 
 ## 📋 Code-Qualität und Best Practices
@@ -39,7 +51,13 @@ app/
 - **Validierung**: Input-Validierung vor Verarbeitung
 - **Logging**: Strukturiertes Logging für Debugging
 
-### 🔧 Verbesserungsvorschläge:
+### 🔧 Umsetzung (Stand)
+- Services von UI entkoppelt (Exceptions statt messagebox)
+- Zentrales Logging (Konsole + tracking/app.log)
+- Pfade konfig-basiert (data_loader.validate_config)
+- Altlasten entfernt/konsolidiert (dispatch/doc_processing/simple_tracking u. a.)
+
+### 🔧 Verbesserungsvorschläge (weiter)
 
 #### **1. main.py Refactoring (Priorität: Hoch)**
 ```python
@@ -102,9 +120,9 @@ class Employee:
 
 ### **Unit Tests (Empfohlen)**
 ```python
-# tests/test_doc_processing.py
+# tests/test_document_service.py
 import unittest
-from app.doc_processing import process_docx_folder
+from app.services.document_service import process_docx_folder
 
 class TestDocProcessing(unittest.TestCase):
     def test_process_docx_folder(self):
@@ -128,13 +146,7 @@ class TestIntegration(unittest.TestCase):
 ## 🔍 Code-Analyse
 
 ### **Komplexitäts-Metriken**
-
-| Datei | Zeilen | Funktionen | Komplexität |
-|-------|--------|------------|-------------|
-| main.py | 1640 | 25+ | Hoch |
-| doc_processing.py | 616 | 15 | Mittel |
-| dispatch.py | 134 | 3 | Niedrig |
-| utils.py | 97 | 4 | Niedrig |
+(aktualisieren bei Bedarf mit Werkzeugen wie radon)
 
 ### **Refactoring-Prioritäten**
 

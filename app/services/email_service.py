@@ -17,7 +17,9 @@ from datetime import date
 import pandas as pd
 
 from constants import MDConstants, ProcStatus
-from dispatch import build_and_send_for_manager
+from logging_config import get_logger
+logger = get_logger()
+from services.dispatch_service import build_and_send_for_manager
 from data_loader import load_employees, build_manager_index, load_config
 from views.ui_utils import autosize_tree_columns
 
@@ -25,8 +27,7 @@ def send_managers(app) -> None:
     """Sendet MD-Dokumente an ausgewählte Vorgesetzte."""
     selected_items = app.tree.selection()
     if not selected_items:
-        messagebox.showwarning(MDConstants.MSG_WARNING, "Bitte wählen Sie mindestens einen Vorgesetzten aus.")
-        return
+        raise ValueError("Bitte wählen Sie mindestens einen Vorgesetzten aus.")
     
     try:
         rb_year = app.rb_year_var.get()
@@ -38,6 +39,7 @@ def send_managers(app) -> None:
         out_root = Path(CFG["paths"]["output_dir"])
         
         sent_count = 0
+        logger.info("Versand gestartet", extra={"count_selected": len(selected_items)})
         for item_id in selected_items:
             vg_pn = item_id
             if vg_pn not in app.mgr_index:
@@ -64,20 +66,21 @@ def send_managers(app) -> None:
                 )
                 sent_count += 1
             except Exception as e:
-                messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Versand an {mgr.get('Nachname', '')} {mgr.get('Rufname', '')}: {e}")
+                logger.error("Versandfehler", extra={"vg_pn": vg_pn, "error": str(e)})
+                raise RuntimeError(f"Fehler beim Versand an {mgr.get('Nachname', '')} {mgr.get('Rufname', '')}:") from e
         
-        messagebox.showinfo(MDConstants.MSG_SUCCESS, f"Versand abgeschlossen: {sent_count} Vorgesetzte erhalten MD-Dokumente.")
+        logger.info("Versand abgeschlossen", extra={"sent_count": sent_count})
+        # Erfolgsmeldung im Controller anzeigen
         
     except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Versand: {e}")
+        raise
 
 
 def send_selected_employees(app) -> None:
     """Sendet MD-Dokumente an ausgewählte Mitarbeiter."""
     selected_items = app.tree_einzel.selection()
     if not selected_items:
-        messagebox.showwarning(MDConstants.MSG_WARNING, "Bitte wählen Sie mindestens einen Mitarbeiter aus.")
-        return
+        raise ValueError("Bitte wählen Sie mindestens einen Mitarbeiter aus.")
     
     try:
         rb_year = app.rb_year_var_einzel.get()
@@ -89,6 +92,7 @@ def send_selected_employees(app) -> None:
         out_root = Path(CFG["paths"]["output_dir"])
         
         sent_count = 0
+        logger.info("Einzelversand gestartet", extra={"count_selected": len(selected_items)})
         for item_id in selected_items:
             vg_pn = item_id
             if vg_pn not in app.mgr_index:
@@ -115,20 +119,19 @@ def send_selected_employees(app) -> None:
                 )
                 sent_count += 1
             except Exception as e:
-                messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Versand an {mgr.get('Nachname', '')} {mgr.get('Rufname', '')}: {e}")
+                raise RuntimeError(f"Fehler beim Versand an {mgr.get('Nachname', '')} {mgr.get('Rufname', '')}:") from e
         
-        messagebox.showinfo(MDConstants.MSG_SUCCESS, f"Versand abgeschlossen: {sent_count} Vorgesetzte erhalten MD-Dokumente.")
+        # Erfolgsmeldung im Controller anzeigen
         
     except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Versand: {e}")
+        raise
 
 
 def preview_managers(app) -> None:
     """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Vorgesetzte."""
     selected_items = app.tree.selection()
     if not selected_items:
-        messagebox.showwarning(MDConstants.MSG_WARNING, "Bitte wählen Sie mindestens einen Vorgesetzten aus.")
-        return
+        raise ValueError("Bitte wählen Sie mindestens einen Vorgesetzten aus.")
     
     preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
     
@@ -172,8 +175,7 @@ def preview_selected(app) -> None:
     """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Mitarbeiter."""
     selected_items = app.tree_einzel.selection()
     if not selected_items:
-        messagebox.showwarning(MDConstants.MSG_WARNING, "Bitte wählen Sie mindestens einen Mitarbeiter aus.")
-        return
+        raise ValueError("Bitte wählen Sie mindestens einen Mitarbeiter aus.")
     
     preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
     
@@ -216,7 +218,7 @@ def preview_selected(app) -> None:
 def render_mail_preview(app) -> None:
     """Rendert eine Vorschau der E-Mail-Inhalte."""
     # Diese Funktion kann erweitert werden, um eine detaillierte E-Mail-Vorschau zu zeigen
-    messagebox.showinfo(MDConstants.MSG_INFO, "E-Mail-Vorschau wird geladen...")
+    # Info im Controller anzeigen
 
     if hasattr(app, "inbox_status"):
         app.inbox_status.config(text="Bereit.", foreground="gray")
@@ -251,8 +253,7 @@ def send_managers(app, mode: str | None = None) -> None:
     """
     sel = app.tree.selection()
     if not sel:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte mindestens eine/n Vorgesetzte/n auswählen.")
-        return
+        raise ValueError("Bitte mindestens eine/n Vorgesetzte/n auswählen.")
 
     rb_year = app.rb_year_var.get()
     ab_year = app.ab_year_var.get()
@@ -360,9 +361,9 @@ def send_managers(app, mode: str | None = None) -> None:
                 app.update_idletasks()
 
     if errors:
-        messagebox.showerror(MDConstants.MSG_ERROR, "\n".join(errors))
+        raise RuntimeError("\n".join(errors))
     else:
-        messagebox.showinfo(MDConstants.MSG_FINISHED, "Versand ausgefuehrt (siehe Outbox/gesendete Elemente).")
+        pass  # Erfolg im Controller anzeigen
 
     # Fortschritt abschließen
     if hasattr(app, "ms_progress"):
@@ -373,28 +374,23 @@ def send_selected_employees(app, mode: str | None = None) -> None:
     """Controller: Versand für ausgewählte Mitarbeitende eines VG auslösen."""
     sel_mgrs = app.tree_einzel.selection()
     if len(sel_mgrs) != 1:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte genau eine/n Vorgesetzte/n auswählen.")
-        return
+        raise ValueError("Bitte genau eine/n Vorgesetzte/n auswählen.")
     vg_pn = sel_mgrs[0]
     pack = app.mgr_index.get(vg_pn)
     if not pack:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Kein Paket für VG_PN {vg_pn}")
-        return
+        raise LookupError(f"Kein Paket für VG_PN {vg_pn}")
 
     subs = pack["subs"].copy()
     sel_subs = app.subs_tree.selection()
     if not sel_subs:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte mindestens eine/n Mitarbeitende/n auswählen.")
-        return
+        raise ValueError("Bitte mindestens eine/n Mitarbeitende/n auswählen.")
 
     sel_pns = set(sel_subs)
     if "ID_NO_ZERO" not in subs.columns:
-        messagebox.showerror(MDConstants.MSG_ERROR, "Stammdaten enthalten keine Spalte ID_NO_ZERO.")
-        return
+        raise ValueError("Stammdaten enthalten keine Spalte ID_NO_ZERO.")
     subs_filtered = subs[subs["ID_NO_ZERO"].astype(str).isin(sel_pns)]
     if subs_filtered.empty:
-        messagebox.showerror(MDConstants.MSG_ERROR, "Keine passenden Mitarbeitenden gefunden.")
-        return
+        raise LookupError("Keine passenden Mitarbeitenden gefunden.")
 
     types: list[str] = []
     if app.var_rb.get():
@@ -404,8 +400,7 @@ def send_selected_employees(app, mode: str | None = None) -> None:
     if app.var_pz.get():
         types.append("Rückblick_Probezeit")
     if not types:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte mindestens einen Dokumenttyp auswählen.")
-        return
+        raise ValueError("Bitte mindestens einen Dokumenttyp auswählen.")
 
     rb_year = app.rb_year_var_einzel.get()
     ab_year = app.ab_year_var_einzel.get()
@@ -461,8 +456,7 @@ def send_selected_employees(app, mode: str | None = None) -> None:
             )
 
     except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, str(e))
-        return
+        raise
     finally:
         if hasattr(app, "es_progress"):
             try:
@@ -471,20 +465,18 @@ def send_selected_employees(app, mode: str | None = None) -> None:
                 pass
             app.es_status.config(text="Bereit.", foreground="gray")
 
-        messagebox.showinfo(MDConstants.MSG_FINISHED, "Unterlagen erzeugt und E-Mail vorbereitet/gesendet.")
+        # Erfolg im Controller anzeigen
 
 
 def preview_managers(app) -> None:
     """Vorschau für Massenversand an Vorgesetzte."""
     sel = app.tree.selection()
     if not sel:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte mindestens eine/n Vorgesetzte/n auswählen.")
-        return
+        raise ValueError("Bitte mindestens eine/n Vorgesetzte/n auswählen.")
     vg_pn = sel[0]
     pack = app.mgr_index.get(vg_pn)
     if not pack or pack.get("manager") is None:
-        messagebox.showerror("Fehler", "Kein gültiger Vorgesetzten-Datensatz gefunden.")
-        return
+        raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
 
     mgr = pack["manager"]
     vg_vorname = str(mgr.get("Rufname", "")).strip()
@@ -505,13 +497,11 @@ def preview_selected(app) -> None:
     """Vorschau für Einzelversand an ausgewählte Mitarbeiter."""
     sel_mgrs = app.tree_einzel.selection()
     if len(sel_mgrs) != 1:
-        messagebox.showwarning(MDConstants.MSG_HINT, "Bitte genau eine/n Vorgesetzte/n auswählen.")
-        return
+        raise ValueError("Bitte genau eine/n Vorgesetzte/n auswählen.")
     vg_pn = sel_mgrs[0]
     pack = app.mgr_index.get(vg_pn)
     if not pack or pack.get("manager") is None:
-        messagebox.showerror("Fehler", "Kein gültiger Vorgesetzten-Datensatz gefunden.")
-        return
+        raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
 
     mgr = pack["manager"]
     vg_vorname = str(mgr.get("Rufname", "")).strip()

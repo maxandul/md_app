@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from constants import MDConstants
+from data_loader import load_config
 from utils import create_info_button
 from views.ui_utils import make_tree, bind_treeview_sort, autosize_tree_columns
 
@@ -39,7 +40,9 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     from controllers.ruecklauf_controller import scan_real
     ttk.Button(toolbar, text="Posteingang scannen", command=lambda: scan_real(app)).pack(side="left", padx=(0, 8))
     ttk.Label(toolbar, text="Ziel für neue Anhänge:").pack(side="left", padx=(16,4))
-    app.inbox_target_var = tk.StringVar(value=str((Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR).resolve()))
+    # Standard-Ziel aus Konfiguration (<root>/ruecklauf/unverarbeitet)
+    CFG = load_config()
+    app.inbox_target_var = tk.StringVar(value=str((Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]).resolve()))
     entry_target = ttk.Entry(toolbar, textvariable=app.inbox_target_var, width=60)
     entry_target.pack(side="left", padx=(0,8))
 

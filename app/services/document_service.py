@@ -12,15 +12,19 @@ import shutil
 import unicodedata
 import pandas as pd
 from typing import Dict, Any
-from tkinter import messagebox
+from logging_config import get_logger
 
-from docx_tools import read_content_controls, detect_doc_type, map_rb_gesamteindruck
-from simple_tracking import SimpleTrackingSystem
+from adapters.docx_reader import read_content_controls, detect_doc_type, map_rb_gesamteindruck
+from services.tracking_service import SimpleTrackingSystem
 from constants import MDConstants, DocType, ProcStatus
-from org_structure import build_org_structure
-from data_loader import load_employees
+from services.org_structure_service import build_org_structure
+from data_loader import load_employees, load_config
 from views.ui_utils import autosize_tree_columns
 from services.export_service import export_sap_massenupload, export_ds_csv
+
+# Konfiguration einmalig laden für zentrale Pfade
+CFG = load_config()
+logger = get_logger()
 from services.file_service import move_after_processing
 
 
@@ -95,7 +99,8 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
     import csv
     from pathlib import Path
 
-    log_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.LOGS_DIR
+    # Protokollverzeichnis aus Konfiguration beziehen
+    log_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["logs_dir"]
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "processing_log.csv"
 
@@ -162,6 +167,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
         try:
             tags = read_content_controls(p)
         except Exception as e:
+            logger.warning("DOCX Lesefehler", extra={"file": p.name, "error": str(e)})
             results.append({
                 "file": p.name, "typ": "Unbekannt", "pn": "", "name": "",
                 "status": ProcStatus.MANUELL.value, "reason": f"DOCX beschädigt/lesefehler: {e}", "extras": {}
@@ -425,7 +431,7 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
     import csv
     from pathlib import Path
 
-    log_dir = Path(__file__).parent.parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.LOGS_DIR
+    log_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["logs_dir"]
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "processing_log.csv"
 
@@ -605,7 +611,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
                 status = ProcStatus.PRUEFUNG_NOETIG.value
-                target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
+                target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
                 if pn and typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
@@ -639,7 +645,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
                     status = ProcStatus.PRUEFUNG_NOETIG.value
-                    target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
+                    target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -695,7 +701,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 else:
                     # Keine SAP-Daten gefunden
                     status = ProcStatus.PRUEFUNG_NOETIG.value
-                    target_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
+                    target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -740,7 +746,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             # - Rückblick/Ausblick: in RPA-Ziel (out_root)
             # - Feedback: in projektweiten Ordner ruecklauf/feedbacks
             if status == ProcStatus.OK.value and typ == DocType.FEEDBACK:
-                fb_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / "feedbacks"
+                # Feedback-PDFs projektweit unter <root>/ruecklauf/feedbacks ablegen
+                fb_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["feedbacks"]
                 fb_dir.mkdir(parents=True, exist_ok=True)
                 # PN ggf. am Ende sicherstellen
                 ensured_name = _ensure_pn_suffix(fname, pn)
@@ -768,7 +775,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     # Für Feedback ist PN die VG-PN
                     tracking.mark_received(pn, "", "Feedback PDF")
 
-            results.append({
+                logger.info("PDF erfolgreich verschoben", extra={"file": fname, "target": str(dest)})
+                results.append({
                 "file": fname,
                 "typ": typ,
                 "pn": pn,
@@ -780,6 +788,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             })
 
         except Exception as e:
+            logger.error("PDF-Verarbeitungsfehler", extra={"file": fname, "error": str(e)})
             results.append({
                 "file": fname,
                 "typ": typ or "Unbekannt",
@@ -790,7 +799,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "target": "",
                 "extras": {"all_tags": {}}
             })
-            manuell_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR / MDConstants.MANUELL_DIR
+            # Manuelle PDFs projektweit unter <root>/ruecklauf/unverarbeitet/manuell ablegen
+            manuell_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
             manuell_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(pdf_path), (manuell_dir / fname))
 
@@ -803,31 +813,30 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
 def run_full_processing(app) -> None:
     """Controller: Führt den dreistufigen Verarbeitungslauf aus."""
-    try:
-        if hasattr(app, "proc_status"):
-            app.proc_status.config(text="Schritt 1/3: DOCX prüfen...", foreground="black")
-            app.update_idletasks()
-        process_docx(app)
+    # Controller ist verantwortlich für UI/Fehleranzeigen; hier nur Exceptions werfen
+    if hasattr(app, "proc_status"):
+        app.proc_status.config(text="Schritt 1/3: DOCX prüfen...", foreground="black")
+        app.update_idletasks()
+    process_docx(app)
 
-        if hasattr(app, "proc_status"):
-            app.proc_status.config(text="Schritt 2/3: Export (SAP+DS) & verschieben...", foreground="black")
-            app.update_idletasks()
-        export_and_move(app)
+    if hasattr(app, "proc_status"):
+        app.proc_status.config(text="Schritt 2/3: Export (SAP+DS) & verschieben...", foreground="black")
+        app.update_idletasks()
+    export_and_move(app)
 
-        if hasattr(app, "proc_status"):
-            app.proc_status.config(text="Schritt 3/3: PDFs verarbeiten...", foreground="black")
-            app.update_idletasks()
-        process_pdfs_run(app)
+    if hasattr(app, "proc_status"):
+        app.proc_status.config(text="Schritt 3/3: PDFs verarbeiten...", foreground="black")
+        app.update_idletasks()
+    process_pdfs_run(app)
 
-        if hasattr(app, "proc_status"):
-            app.proc_status.config(text="Gesamtverarbeitung abgeschlossen.", foreground="black")
-    except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Verarbeitung abgebrochen: {e}")
+    if hasattr(app, "proc_status"):
+        app.proc_status.config(text="Gesamtverarbeitung abgeschlossen.", foreground="black")
 
 
 def process_docx(app) -> None:
     """Controller: Prüft DOCX im Rücklauf und befüllt die DOCX-Tabelle im UI."""
-    input_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR
+    # DOCX-Eingang ist projektweit <root>/ruecklauf/unverarbeitet
+    input_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
 
     # Tabelle leeren
     for i in app.tree_proc.get_children():
@@ -890,7 +899,7 @@ def process_docx(app) -> None:
 
 def export_and_move(app) -> None:
     """Controller: Schreibt Exporte (SAP, DS) und verschiebt DOCX gemäß Status."""
-    input_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR
+    input_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
     sap_out = Path(__file__).parent.parent / "sap_massenupload" / "massenupload.xlsx"
     ds_out = Path(__file__).parent.parent / "tracking" / "ds_export" / "docx_extract.csv"
 
@@ -902,31 +911,19 @@ def export_and_move(app) -> None:
     results = app._last_docx_results
 
     # 2) Exporte schreiben
-    try:
-        sap_df = load_employees()
-        export_sap_massenupload(results, sap_df, sap_out)
-        export_ds_csv(results, ds_out, sap_df)
-    except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Export fehlgeschlagen:\n{e}")
-        return
+    sap_df = load_employees()
+    export_sap_massenupload(results, sap_df, sap_out)
+    export_ds_csv(results, ds_out, sap_df)
 
     # 3) Verschieben
-    try:
-        moved_ok, moved_man = move_after_processing(input_dir, results)
-    except Exception as e:
-        messagebox.showerror(MDConstants.MSG_ERROR, f"Verschieben fehlgeschlagen:\n{e}")
-        return
+    moved_ok, moved_man = move_after_processing(input_dir, results)
 
-    messagebox.showinfo(
-        MDConstants.MSG_FINISHED,
-        f"Export geschrieben:\n- SAP: {sap_out}\n- DS:  {ds_out}\n\n"
-        f"Verschoben:\n- OK → {MDConstants.VERARBEITET_DIR}: {moved_ok}\n- manuell → {MDConstants.MANUELL_DIR}: {moved_man}"
-    )
+    # Erfolgsmeldung wird im Controller/GUI angezeigt
 
 
 def process_pdfs_run(app) -> None:
     """Controller: Verarbeitet PDFs im Rücklauf und aktualisiert die PDF-Tabelle im UI."""
-    in_dir = Path(__file__).parent.parent / MDConstants.RUECKLAUF_DIR / MDConstants.UNVERARBEITET_DIR
+    in_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
     out_root = Path(app.rpa_target_var.get())
 
     if hasattr(app, "sap_df"):
@@ -981,7 +978,7 @@ def process_pdfs_run(app) -> None:
     except Exception:
         pass
 
-    messagebox.showinfo(MDConstants.MSG_FINISHED, f"{len(results)} PDFs verarbeitet.")
+    # Erfolgsmeldung im Controller anzeigen
 
     # Aufräumen: restliche Dateien zurückschieben, falls vorhanden
     for p in temp_dir.glob(f"*{MDConstants.ALLOWED_EXTENSIONS[1]}"):
