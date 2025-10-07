@@ -21,8 +21,9 @@ def run_full_processing(app) -> None:
         from data_loader import load_config
         CFG = load_config()
         
-        # Eingangsordner
-        input_dir = Path(app.rpa_target_var.get())
+        # Eingangsordner ist IMMER ruecklauf/unverarbeitet (wo die eingehenden Dokumente liegen)
+        # Korrektur: Von controllers/ aus 2 Ebenen hoch zur app/, dann Config-Pfad anwenden
+        input_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
         if not input_dir.exists():
             from tkinter import messagebox
             messagebox.showerror(MDConstants.MSG_ERROR, f"Eingangsordner existiert nicht: {input_dir}")

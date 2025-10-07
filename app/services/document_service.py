@@ -186,8 +186,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
-                    tracking.mark_error(p.name, pn, "Rückblick Word", "Pflichtfelder rb_name/rb_pn fehlen")
+                    tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "Pflichtfelder rb_name/rb_pn fehlen", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -202,8 +202,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
-                    tracking.mark_error(p.name, pn, "Rückblick Word", "PN nicht in SAP gefunden")
+                    tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "PN nicht in SAP gefunden", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -217,8 +217,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
-                    tracking.mark_error(p.name, pn, "Rückblick Word", "Name passt nicht zu SAP")
+                    tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "Name passt nicht zu SAP", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -234,8 +234,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
-                    tracking.mark_error(p.name, pn, "Rückblick Word", "rb_gesamteindruck fehlt/ungültig")
+                    tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", "rb_gesamteindruck fehlt/ungültig", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -252,8 +252,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             if is_duplicate:
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Rückblick Word")
-                    tracking.mark_error(p.name, pn, "Rückblick Word", f"Duplikat: {warning}")
+                    tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                    tracking.mark_error(p.name, pn, "Rückblick Word", f"Duplikat: {warning}", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -262,8 +262,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 continue
             
             # Status im Tracking-System auf "erhalten" setzen
-            if vg_pn:
-                tracking.mark_received(vg_pn, pn, "Rückblick Word")
+            if vg_pn and pn:
+                tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -280,8 +280,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
-                    tracking.mark_error(p.name, pn, "Ausblick Word", "Pflichtfelder ab_name/ab_pn fehlen")
+                    tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "Pflichtfelder ab_name/ab_pn fehlen", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -296,8 +296,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
-                    tracking.mark_error(p.name, pn, "Ausblick Word", "PN nicht in SAP gefunden")
+                    tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "PN nicht in SAP gefunden", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -311,8 +311,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
-                    tracking.mark_error(p.name, pn, "Ausblick Word", "Name passt nicht zu SAP")
+                    tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", "Name passt nicht zu SAP", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -329,8 +329,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             if is_duplicate:
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
-                    tracking.mark_received(vg_pn, pn, "Ausblick Word")
-                    tracking.mark_error(p.name, pn, "Ausblick Word", f"Duplikat: {warning}")
+                    tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
+                    tracking.mark_error(p.name, pn, "Ausblick Word", f"Duplikat: {warning}", vg_pn)
                 
                 results.append({
                     "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -339,8 +339,8 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 continue
             
             # Status im Tracking-System auf "erhalten" setzen
-            if vg_pn:
-                tracking.mark_received(vg_pn, pn, "Ausblick Word")
+            if vg_pn and pn:
+                tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
             
             results.append({
                 "file": p.name, "typ": typ, "pn": pn, "name": name,
@@ -630,7 +630,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     
                     if vg_pn:
                         doc_type = f"{typ.value} PDF"
-                        tracking.mark_received(vg_pn, pn, doc_type)
+                        # Bei Fehler nur mark_error aufrufen - keine Zuordnung möglich
                         tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
 
             # Zielpfad festlegen (vorläufig)
@@ -654,12 +654,9 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
                     
-                    # Tracking: Markiere als empfangen aber fehlerhaft
-                    vg_pn = str(matching_rows.iloc[0].get("Dir. Vorgesetzter (PN)", "")).strip()
-                    if vg_pn:
-                        doc_type = f"{typ.value} PDF"
-                        tracking.mark_received(vg_pn, pn, doc_type)
-                        tracking.mark_error(fname, pn, doc_type, f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden")
+                    # Tracking: Markiere Fehler bei ALLEN Einträgen (VG-PN unbekannt bei Mehrfachanstellung)
+                    doc_type = f"{typ.value} PDF"
+                    tracking.mark_error(fname, pn, doc_type, f"Mehrfachanstellung: {anzahl_anstellungen} Anstellungen gefunden - manuelle Zuordnung erforderlich")
                     
                     results.append({
                         "file": fname,
@@ -687,10 +684,10 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         target_dir.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(pdf_path), dest)
                         
-                        # Tracking: Markiere als empfangen aber fehlerhaft
+                        # Tracking: Markiere als empfangen aber fehlerhaft (VG-PN bekannt bei Einzelanstellung)
                         if vg_pn:
-                            tracking.mark_received(vg_pn, pn, doc_type)
-                            tracking.mark_error(fname, pn, doc_type, f"Duplikat: {warning}")
+                            tracking.mark_received_word(vg_pn, pn, doc_type)
+                            tracking.mark_error(fname, pn, doc_type, f"Duplikat: {warning}", vg_pn)
                         
                         results.append({
                             "file": fname,
@@ -726,7 +723,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         
                         if vg_pn:
                             doc_type = f"{typ.value} PDF"
-                            tracking.mark_received(vg_pn, pn, doc_type)
+                            # Bei Fehler nur mark_error aufrufen - keine Zuordnung möglich
                             tracking.mark_error(fname, pn, doc_type, "PN nicht in SAP-Daten gefunden")
                     
                     results.append({
@@ -771,16 +768,33 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             # Tracking-System aktualisieren für erfolgreiche Verarbeitung
             if status == ProcStatus.OK.value and pn:
                 if typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
-                    # VG-PN ermitteln
-                    vg_pn = ""
-                    if pn in sap_df["ID_NO_ZERO"].astype(str).values:
-                        row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
-                        vg_pn = str(row.get("Dir. Vorgesetzter (PN)", "")).strip()
+                    # PDF-Dokumente: Nur MA-PN bekannt, VG-PN nicht verfügbar
                     doc_type = f"{typ.value} PDF"
-                    tracking.mark_received(vg_pn, pn, doc_type)
+                    tracking_result = tracking.mark_received_pdf(pn, doc_type)
+                    
+                    # Prüfe ob Mehrfachanstellung vorliegt
+                    if not tracking_result["success"] and tracking_result["matched_count"] > 1:
+                        # Mehrfachanstellung - manuelle Zuordnung erforderlich
+                        status = ProcStatus.PRUEFUNG_NOETIG.value
+                        reason = tracking_result["message"]
+                        # PDF muss nach manuell verschoben werden
+                        manuell_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
+                        manuell_dir.mkdir(parents=True, exist_ok=True)
+                        dest = manuell_dir / fname
+                        # Verschiebe von aktuellem dest nach manuell
+                        if dest.exists():
+                            dest = manuell_dir / f"{Path(fname).stem}_mehrfach{Path(fname).suffix}"
+                        import shutil
+                        try:
+                            shutil.move(str(pdf_path), str(dest))
+                        except Exception:
+                            pass  # Datei wurde bereits verschoben
+                    elif tracking_result["matched_count"] == 0:
+                        # Kein Tracking-Eintrag - Dokument war nicht erwartet
+                        reason = tracking_result["message"]
                 elif typ == DocType.FEEDBACK:
-                    # Für Feedback ist PN die VG-PN
-                    tracking.mark_received(pn, "", "Feedback PDF")
+                    # Für Feedback ist PN die VG-PN - eindeutige Zuordnung
+                    tracking.mark_received_word("", pn, "Feedback PDF")  # Feedback hat keine MA, nur VG
 
                 logger.info("PDF erfolgreich verschoben", extra={"file": fname, "target": str(dest)})
                 results.append({

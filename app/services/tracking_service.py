@@ -135,3 +135,236 @@ class SimpleTrackingSystem:
         df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
         return True
 
+    def mark_received_word(self, vg_pn: str, ma_pn: str, doc_type: str) -> bool:
+        """Markiert ein Word-Dokument als empfangen (eindeutige Zuordnung über VG-PN + MA-PN).
+        
+        Args:
+            vg_pn: Vorgesetzten-Personalnummer
+            ma_pn: Mitarbeiter-Personalnummer
+            doc_type: Dokumenttyp (z.B. "Rückblick Word", "Ausblick Word")
+            
+        Returns:
+            True wenn Update erfolgreich, False sonst
+        """
+        if not self.log_path.exists():
+            return False
+            
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+        
+        # Eindeutige Zuordnung über vg_pn + ma_pn + doc_type
+        mask = (
+            (df["vg_pn"].astype(str).str.strip() == str(vg_pn).strip()) &
+            (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+            (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+        )
+        
+        if not mask.any():
+            # Kein passender Eintrag gefunden - Dokument war nicht erwartet
+            return False
+        
+        # Erhöhe erhalten-Zähler und aktualisiere Status
+        df.loc[mask, "erhalten"] = (pd.to_numeric(df.loc[mask, "erhalten"], errors="coerce").fillna(0) + 1).astype(int).astype(str)
+        
+        # Status auf "erhalten" setzen wenn erhalten >= erwartet
+        erwartet = pd.to_numeric(df.loc[mask, "erwartet"], errors="coerce").fillna(0)
+        erhalten = pd.to_numeric(df.loc[mask, "erhalten"], errors="coerce").fillna(0)
+        df.loc[mask & (erhalten >= erwartet), "status"] = "erhalten"
+        
+        # Speichern
+        df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
+        return True
+
+    def mark_received_pdf(self, ma_pn: str, doc_type: str) -> Dict[str, any]:
+        """Markiert ein PDF-Dokument als empfangen (nur MA-PN bekannt).
+        
+        Bei Mehrfachanstellungen kann keine eindeutige Zuordnung erfolgen.
+        
+        Args:
+            ma_pn: Mitarbeiter-Personalnummer
+            doc_type: Dokumenttyp (z.B. "Rückblick PDF", "Ausblick PDF")
+            
+        Returns:
+            Dictionary mit:
+            - success: True wenn eindeutig zugeordnet
+            - matched_count: Anzahl gefundener Einträge (0, 1, oder 2+)
+            - message: Beschreibung des Ergebnisses
+            - matched_entries: Liste der gefundenen Einträge (bei Mehrfachanstellung)
+        """
+        if not self.log_path.exists():
+            return {
+                "success": False,
+                "matched_count": 0,
+                "message": "Tracking-Datei nicht gefunden",
+                "matched_entries": []
+            }
+            
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+        
+        # Suche alle Einträge mit dieser MA-PN + doc_type
+        mask = (
+            (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+            (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+        )
+        
+        matched_count = mask.sum()
+        
+        if matched_count == 0:
+            return {
+                "success": False,
+                "matched_count": 0,
+                "message": "Kein Tracking-Eintrag gefunden - Dokument war nicht erwartet",
+                "matched_entries": []
+            }
+        
+        elif matched_count == 1:
+            # Eindeutige Zuordnung - Update durchführen
+            df.loc[mask, "erhalten"] = (pd.to_numeric(df.loc[mask, "erhalten"], errors="coerce").fillna(0) + 1).astype(int).astype(str)
+            
+            # Status auf "erhalten" setzen wenn erhalten >= erwartet
+            erwartet = pd.to_numeric(df.loc[mask, "erwartet"], errors="coerce").fillna(0)
+            erhalten = pd.to_numeric(df.loc[mask, "erhalten"], errors="coerce").fillna(0)
+            df.loc[mask & (erhalten >= erwartet), "status"] = "erhalten"
+            
+            # Speichern
+            df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
+            
+            vg_info = df[mask].iloc[0]
+            return {
+                "success": True,
+                "matched_count": 1,
+                "message": f"Zugeordnet zu VG {vg_info.get('vg_name', '')} ({vg_info.get('vg_pn', '')})",
+                "matched_entries": []
+            }
+        
+        else:  # matched_count > 1
+            # Mehrfachanstellung - keine automatische Zuordnung
+            matched_entries = df[mask][["vg_pn", "vg_name", "log_id"]].to_dict('records')
+            vg_list = ", ".join([f"{e['vg_name']} ({e['vg_pn']})" for e in matched_entries])
+            
+            return {
+                "success": False,
+                "matched_count": matched_count,
+                "message": f"Mehrfachanstellung: {matched_count} Vorgesetzte - {vg_list}",
+                "matched_entries": matched_entries
+            }
+
+    def mark_error(self, filename: str, ma_pn: str, doc_type: str, error_message: str, vg_pn: str = None) -> bool:
+        """Markiert einen Tracking-Eintrag als fehlerhaft.
+        
+        Args:
+            filename: Dateiname
+            ma_pn: Mitarbeiter-Personalnummer
+            doc_type: Dokumenttyp
+            error_message: Fehlerbeschreibung
+            vg_pn: Optional - Vorgesetzten-PN für eindeutige Zuordnung
+            
+        Returns:
+            True wenn Update erfolgreich
+        """
+        if not self.log_path.exists():
+            return False
+            
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+        
+        # Zuordnung je nachdem ob VG-PN bekannt ist
+        if vg_pn:
+            # Eindeutige Zuordnung mit VG-PN
+            mask = (
+                (df["vg_pn"].astype(str).str.strip() == str(vg_pn).strip()) &
+                (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+                (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+            )
+        else:
+            # Ohne VG-PN - nur mit MA-PN (kann mehrere treffen bei Mehrfachanstellung)
+            mask = (
+                (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+                (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+            )
+        
+        if not mask.any():
+            return False
+        
+        # Setze Status und Fehlergrund
+        df.loc[mask, "status"] = "prüfung_nötig"
+        df.loc[mask, "status_grund"] = str(error_message)
+        
+        # Speichern
+        df.to_csv(self.log_path, sep=";", index=False, encoding="utf-8-sig")
+        return True
+
+    def check_duplicate(self, filename: str, ma_pn: str, doc_type: str, vg_pn: str = None) -> tuple:
+        """Prüft ob bereits ein Dokument dieses Typs für diese Person empfangen wurde.
+        
+        Args:
+            filename: Dateiname
+            ma_pn: Mitarbeiter-Personalnummer
+            doc_type: Dokumenttyp
+            vg_pn: Optional - Vorgesetzten-PN für eindeutige Zuordnung
+            
+        Returns:
+            Tuple (is_duplicate: bool, warning_message: str)
+        """
+        if not self.log_path.exists():
+            return (False, "")
+            
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8")
+        
+        # Zuordnung je nachdem ob VG-PN bekannt ist
+        if vg_pn:
+            mask = (
+                (df["vg_pn"].astype(str).str.strip() == str(vg_pn).strip()) &
+                (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+                (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+            )
+        else:
+            mask = (
+                (df["ma_pn"].astype(str).str.strip() == str(ma_pn).strip()) &
+                (df["doc_type"].astype(str).str.strip() == str(doc_type).strip())
+            )
+        
+        if not mask.any():
+            return (False, "")
+        
+        # Prüfe ob bereits erhalten
+        erhalten = pd.to_numeric(df.loc[mask, "erhalten"], errors="coerce").fillna(0)
+        
+        if (erhalten > 0).any():
+            return (True, f"Bereits {int(erhalten.max())} Dokument(e) für {doc_type} empfangen")
+        
+        return (False, "")
+
+    def _count_direct_reports(self, mgr_pn: str, managers_index: dict = None) -> int:
+        """Zählt Anzahl direkter Unterstellter eines Vorgesetzten."""
+        if managers_index and mgr_pn in managers_index:
+            subs = managers_index[mgr_pn].get("subs")
+            if subs is not None:
+                return len(subs)
+        return 0
+
+    def _has_feedback_for_manager(self, mgr_pn: str, rb_year: int) -> bool:
+        """Prüft ob bereits ein Feedback-Eintrag für diesen Manager existiert."""
+        if not self.log_path.exists():
+            return False
+        try:
+            df = pd.read_csv(self.log_path, sep=";", dtype=str, encoding="utf-8-sig")
+        except Exception:
+            return False
+        
+        mask = (
+            (df["vg_pn"].astype(str).str.strip() == str(mgr_pn).strip()) &
+            (df["doc_type"].astype(str).str.strip() == "Feedback PDF")
+        )
+        return mask.any()
+

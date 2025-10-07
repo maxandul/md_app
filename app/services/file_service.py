@@ -11,7 +11,6 @@ import shutil
 from typing import Tuple
 
 from app.constants import MDConstants, ProcStatus
-from app.services.tracking_service import SimpleTrackingSystem
 from app.data_loader import load_config
 
 
@@ -33,7 +32,6 @@ def move_after_processing(input_dir: Path, results: list[dict]):
     manuell_dir = base_dir / ruecklauf_paths.get("manuell", "../ruecklauf/unverarbeitet/manuell").lstrip("../")
     verarbeitet_dir.mkdir(parents=True, exist_ok=True)
     manuell_dir.mkdir(parents=True, exist_ok=True)
-    tracking = SimpleTrackingSystem()
 
     def _unique_path(base_dir: Path, name: str) -> Path:
         target = base_dir / name
@@ -61,20 +59,13 @@ def move_after_processing(input_dir: Path, results: list[dict]):
             shutil.move(str(src), str(dst))
             moved_ok += 1
             
-            # Tracking: Markiere als erhalten
-            pn = r.get("pn", "")
-            if pn:
-                tracking.mark_received(fname, pn, "word")
+            # Tracking wurde bereits in document_service.py durchgeführt
         elif r.get("status") in (ProcStatus.MANUELL.value, ProcStatus.PRUEFUNG_NOETIG.value):
             dst = _unique_path(manuell_dir, fname)
             shutil.move(str(src), str(dst))
             moved_man += 1
             
-            # Tracking: Markiere als empfangen aber fehlerhaft
-            pn = r.get("pn", "")
-            if pn:
-                tracking.mark_received(fname, pn, "word")
-                tracking.mark_error(fname, pn, "word", r.get("reason", "Unbekannter Fehler"))
+            # Tracking wurde bereits in document_service.py durchgeführt
 
     return moved_ok, moved_man
 
