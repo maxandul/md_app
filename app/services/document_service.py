@@ -784,7 +784,6 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         # Verschiebe von aktuellem dest nach manuell
                         if dest.exists():
                             dest = manuell_dir / f"{Path(fname).stem}_mehrfach{Path(fname).suffix}"
-                        import shutil
                         try:
                             shutil.move(str(pdf_path), str(dest))
                         except Exception:
