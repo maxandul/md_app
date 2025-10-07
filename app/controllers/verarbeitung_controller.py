@@ -89,15 +89,19 @@ def run_full_processing(app) -> None:
             sap_df=sap_df
         )
         
-        # Verschiebe Dateien
-        moved_ok, moved_man = move_after_processing(input_dir, all_results)
+        # Verschiebe Dateien (nur Word-Dokumente, PDFs wurden bereits in process_pdfs verschoben)
+        moved_ok, moved_man = move_after_processing(input_dir, docx_results)
+        
+        # Zähle alle Ergebnisse (Word + PDF)
+        count_ok = sum(1 for r in all_results if r.get("status") == ProcStatus.OK.value)
+        count_manuell = sum(1 for r in all_results if r.get("status") in (ProcStatus.MANUELL.value, ProcStatus.PRUEFUNG_NOETIG.value))
         
         # Status-Update
         app.proc_status.config(
-            text=f"Verarbeitung abgeschlossen: {len(all_results)} Dateien, {moved_ok} OK, {moved_man} manuell",
+            text=f"Verarbeitung abgeschlossen: {len(all_results)} Dateien, {count_ok} OK, {count_manuell} manuell",
             foreground="green"
         )
-        logger.info("Verarbeitung abgeschlossen", extra={"count": len(all_results), "ok": moved_ok, "manuell": moved_man})
+        logger.info("Verarbeitung abgeschlossen", extra={"count": len(all_results), "ok": count_ok, "manuell": count_manuell})
         
         # Treeview aktualisieren
         from views.ui_utils import autosize_tree_columns
@@ -107,25 +111,35 @@ def run_full_processing(app) -> None:
             for item in tree.get_children():
                 tree.delete(item)
         
-        # Füge neue Einträge hinzu
+        # Füge neue Einträge hinzu - basierend auf Dateityp, nicht Status
         for result in all_results:
-            if result.get("status") == ProcStatus.OK.value:
-                app.tree_proc.insert("", "end", values=[
-                    result.get("file", ""),
-                    result.get("typ", ""),
-                    result.get("pn", ""),
-                    result.get("name", ""),
-                    result.get("status", ""),
-                    result.get("reason", "")
-                ])
-            else:
+            fname = result.get("file", "")
+            typ = result.get("typ", "")
+            
+            # Entscheide basierend auf Dateityp (Word vs. PDF)
+            is_pdf = fname.lower().endswith(".pdf") or "PDF" in str(typ)
+            
+            if is_pdf:
+                # PDF-Dokumente in PDF-Tabelle
                 app.tree_pdfs.insert("", "end", values=[
                     result.get("file", ""),
                     result.get("typ", ""),
                     result.get("pn", ""),
                     result.get("name", ""),
                     result.get("status", ""),
-                    result.get("reason", "")
+                    result.get("reason", ""),
+                    result.get("target", "")
+                ])
+            else:
+                # Word-Dokumente in Word-Tabelle
+                app.tree_proc.insert("", "end", values=[
+                    result.get("file", ""),
+                    result.get("typ", ""),
+                    result.get("pn", ""),
+                    result.get("name", ""),
+                    result.get("status", ""),
+                    result.get("reason", ""),
+                    result.get("target", "")
                 ])
         
         # Spaltenbreiten anpassen

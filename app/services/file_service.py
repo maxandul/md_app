@@ -21,8 +21,6 @@ def move_after_processing(input_dir: Path, results: list[dict]):
       - manuell -> /ruecklauf/unverarbeitet/manuell
     Achtung: nur DOCX (hier); PDFs kommen im separaten Schritt.
     """
-    import shutil
-    
     # Projektwurzel (eine Ebene über 'app') ermitteln und feste Zielordner nutzen
     CFG = load_config()
     ruecklauf_paths = CFG.get("paths", {}).get("ruecklauf", {})
