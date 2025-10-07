@@ -160,6 +160,11 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
     """
     Breiter DS-Export: eine Zeile je Dokument, alle Tags (soweit vorhanden).
     Erweitert um Hierarchie-Informationen aus SAP Stammdaten.
+    
+    Exportiert nur:
+    - DOCX-Dokumente (keine PDFs)
+    - Erfolgreich verarbeitete Dokumente (Status = OK)
+    - Daten werden angehängt (append mode), nicht überschrieben
     """
     rows = []
     
@@ -175,6 +180,13 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
             print(f"Warnung: Hierarchie-Daten konnten nicht geladen werden: {e}")
     
     for r in results:
+        # Nur DOCX-Dokumente (keine PDFs) und nur erfolgreich verarbeitete (Status = OK)
+        fname = r.get("file", "").lower()
+        status = r.get("status", "")
+        
+        # Filtere PDFs und nicht-OK Status aus
+        if fname.endswith(".pdf") or status != ProcStatus.OK.value:
+            continue
         base = {
             "file": r.get("file", ""),
             "typ": r.get("typ", ""),
@@ -235,9 +247,33 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
         
         rows.append(row)
 
-    df = pd.DataFrame(rows)
+    # Nur schreiben wenn Daten vorhanden
+    if not rows:
+        return
+    
+    df_new = pd.DataFrame(rows)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_csv, index=False, encoding="utf-8-sig")
+    
+    # Prüfen ob Datei existiert -> Append-Modus mit Spalten-Vereinigung
+    if out_csv.exists():
+        # Alte Daten einlesen
+        try:
+            df_old = pd.read_csv(out_csv, encoding="utf-8-sig")
+            
+            # Neue und alte Daten kombinieren
+            # pd.concat vereinigt automatisch alle Spalten (union)
+            # Fehlende Werte werden mit NaN gefüllt
+            df_combined = pd.concat([df_old, df_new], ignore_index=True)
+            
+            # Komplett neu schreiben mit allen Spalten
+            df_combined.to_csv(out_csv, mode='w', header=True, index=False, encoding="utf-8-sig")
+        except Exception as e:
+            # Fallback: Bei Fehler beim Einlesen nur neue Daten anhängen
+            print(f"Warnung: Fehler beim Einlesen der bestehenden CSV: {e}")
+            df_new.to_csv(out_csv, mode='a', header=False, index=False, encoding="utf-8-sig")
+    else:
+        # Neu erstellen mit Header
+        df_new.to_csv(out_csv, mode='w', header=True, index=False, encoding="utf-8-sig")
 
 
 def generate_export_data(results: list[dict], sap_df: pd.DataFrame) -> Dict[str, Any]:
