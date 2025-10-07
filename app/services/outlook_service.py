@@ -39,7 +39,8 @@ def scan_real(app) -> None:
 
     # Kopierziel aus Konfiguration: <root>/ruecklauf/unverarbeitet
     CFG = load_config()
-    base_path = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    base_path = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
     base_path.mkdir(parents=True, exist_ok=True)
     try:
         # UI-Variable konsistent halten

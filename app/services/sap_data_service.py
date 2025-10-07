@@ -21,6 +21,7 @@ def check_stammdaten(app) -> None:
     """Controller: Prüft EXPORT.xlsx, befüllt Prüftabellen und Label im UI."""
     from datetime import datetime
     CFG = load_config()
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
     xlsx_path = Path(__file__).parent.parent / CFG["paths"]["sap_stammdaten"]
 
     # 1. Dateiinfo und Metadaten prüfen

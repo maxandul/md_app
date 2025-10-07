@@ -68,18 +68,20 @@ def run_full_processing(app) -> None:
         all_results = docx_results + pdf_results
         
         # Export
-        # Zielpfad SAP-Massenupload: config.paths.sap_massenupload, sonst Default in app/sap_massenupload/massenupload.xlsx
+        # Zielpfad SAP-Massenupload: config.paths.sap_massenupload, sonst Default in sap_massenupload/massenupload.xlsx
         sap_massenupload_cfg = (CFG.get("paths", {}) or {}).get("sap_massenupload")
-        sap_massenupload_path = Path(sap_massenupload_cfg) if sap_massenupload_cfg else (Path(__file__).parent.parent / "sap_massenupload" / "massenupload.xlsx")
+        # Korrektur: Von controllers/ aus 3 Ebenen hoch zur Root (md_app/)
+        sap_massenupload_path = Path(sap_massenupload_cfg) if sap_massenupload_cfg else (Path(__file__).parent.parent.parent / "sap_massenupload" / "massenupload.xlsx")
         export_sap_massenupload(
             results=all_results,
             sap_df=sap_df,
             out_xlsx=sap_massenupload_path
         )
         
-        # Zielpfad DS-Export: config.paths.ds_export, sonst Default in app/tracking/ds_export/docx_extract.csv
+        # Zielpfad DS-Export: config.paths.ds_export, sonst Default in tracking/ds_export/docx_extract.csv
         ds_export_cfg = (CFG.get("paths", {}) or {}).get("ds_export")
-        ds_export_path = Path(ds_export_cfg) if ds_export_cfg else (Path(__file__).parent.parent / "tracking" / "ds_export" / "docx_extract.csv")
+        # Korrektur: Von controllers/ aus 3 Ebenen hoch zur Root (md_app/)
+        ds_export_path = Path(ds_export_cfg) if ds_export_cfg else (Path(__file__).parent.parent.parent / "tracking" / "ds_export" / "docx_extract.csv")
         export_ds_csv(
             results=all_results,
             out_csv=ds_export_path,

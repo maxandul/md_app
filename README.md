@@ -16,8 +16,8 @@ Das MD-Prozess-Tool automatisiert die Verwaltung des jährlichen Mitarbeitenden-
 
 ```
 md_app/
-├── app/                          # Hauptanwendung
-│   ├── main.py                   # GUI-Hauptanwendung (Tkinter)
+├── app/                         # Hauptanwendung
+│   ├── main.py                  # GUI-Hauptanwendung (Tkinter)
 │   ├── config.yaml              # Konfigurationsdatei
 │   ├── logging_config.py        # Zentrales Logging
 │   ├── exceptions.py            # Eigene Exception-Typen
@@ -44,14 +44,17 @@ md_app/
 │   ├── MD_Feedback.docx
 │   ├── MD_Rückblick.docx
 │   └── MD_Rückblick_Probezeit.docx
-├── sap_stammdaten/              # SAP-Export-Dateien
+├── sap_stammdaten/              # SAP-Export für Stammdaten
 │   └── EXPORT.xlsx
+├── sap_massenupload/            # SAP-Export für Massenupload
 ├── tracking/                    # Tracking-Daten
-│   └── versand/
+│   └── versand/                 # Erstellte & versende MD-Dokumente
+│   ├── ds_export/               # Data Science Export
+│   └── logging/                 # Logging Dateien
 ├── ruecklauf/                   # Eingehende Dokumente
-│   ├── unverarbeitet/
-│   ├── verarbeitet/
-│   └── manuell/
+│   ├── unverarbeitet/           # Zielorder Mailanhänge 
+|   |   └── manuell/             # Zielordner bei fehlerhafen Verarbeitung
+│   └── verarbeitet/             # Zielordner bei erfolgreicher Verarbeitung
 └── requirements.txt             # Python-Abhängigkeiten
 ```
 

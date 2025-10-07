@@ -98,44 +98,52 @@ def preview_reminders(app) -> None:
 
 
 def _show_preview_dialog(app, previews: list) -> None:
-    """Zeigt einen Dialog mit Vorschau der Erinnerungsmails."""
-    dialog = tk.Toplevel(app)
-    dialog.title("Vorschau Erinnerungsmails")
-    dialog.geometry("800x600")
-    dialog.transient(app)
-    dialog.grab_set()
-
-    # Notebook für mehrere Vorschauen
-    notebook = tk.ttk.Notebook(dialog)
-    notebook.pack(fill="both", expand=True, padx=8, pady=8)
-
+    """Zeigt Vorschau der Erinnerungsmails im Browser als HTML."""
+    import tempfile
+    import webbrowser
+    from pathlib import Path
+    
+    # HTML-Dokument mit allen Vorschauen erstellen
+    html_parts = [
+        "<html><head><meta charset=\"utf-8\">",
+        "<style>",
+        "body{font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#222;margin:0;padding:0;}",
+        ".preview-container{max-width:900px;margin:20px auto;padding:20px;}",
+        ".email-preview{background:#fff;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:24px;box-shadow:0 2px 4px rgba(0,0,0,0.1);}",
+        ".email-header{background:#f5f5f5;padding:12px;border-radius:4px;margin-bottom:16px;}",
+        ".email-to{font-weight:600;color:#0066cc;margin-bottom:4px;}",
+        ".email-subject{font-weight:600;margin-bottom:4px;}",
+        ".email-body{padding:12px 0;}",
+        "h1{color:#333;font-size:24px;margin:0 0 20px 0;border-bottom:2px solid #0066cc;padding-bottom:10px;}",
+        "hr{border:none;border-top:2px solid #0066cc;margin:20px 0;}",
+        "</style></head><body>",
+        "<div class=\"preview-container\">",
+        "<h1>Vorschau Erinnerungsmails</h1>"
+    ]
+    
+    # Jede Preview als separate Box hinzufügen
     for i, preview in enumerate(previews):
-        frame = tk.ttk.Frame(notebook)
-        notebook.add(frame, text=f"An: {preview['to']}")
-
-        # Betreff
-        tk.ttk.Label(frame, text="Betreff:", font=("Arial", 10, "bold")).pack(anchor="w", padx=8, pady=(8, 4))
-        subject_text = tk.Text(frame, height=2, wrap="word")
-        subject_text.pack(fill="x", padx=8, pady=(0, 8))
-        subject_text.insert("1.0", preview["subject"])
-        subject_text.config(state="disabled")
-
-        # Inhalt
-        tk.ttk.Label(frame, text="Inhalt:", font=("Arial", 10, "bold")).pack(anchor="w", padx=8, pady=(8, 4))
-        content_text = tk.Text(frame, wrap="word")
-        content_text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        html_parts.append("<div class=\"email-preview\">")
+        html_parts.append("<div class=\"email-header\">")
+        html_parts.append(f"<div class=\"email-to\">An: {preview['to']}</div>")
+        html_parts.append(f"<div class=\"email-subject\">Betreff: {preview['subject']}</div>")
+        html_parts.append("</div>")
+        html_parts.append("<div class=\"email-body\">")
+        html_parts.append(preview["body"])
+        html_parts.append("</div>")
+        html_parts.append("</div>")
         
-        # HTML zu Text konvertieren für bessere Lesbarkeit
-        html_content = preview["body"]
-        # Einfache HTML-Tag-Entfernung
-        import re
-        text_content = re.sub(r'<[^>]+>', '', html_content)
-        text_content = text_content.replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>')
-        
-        content_text.insert("1.0", text_content)
-        content_text.config(state="disabled")
-
-    # Schließen-Button
-    button_frame = tk.ttk.Frame(dialog)
-    button_frame.pack(fill="x", padx=8, pady=(0, 8))
-    tk.ttk.Button(button_frame, text="Schließen", command=dialog.destroy).pack(side="right")
+        # Trennlinie zwischen Emails (außer nach der letzten)
+        if i < len(previews) - 1:
+            html_parts.append("<hr/>")
+    
+    html_parts.append("</div></body></html>")
+    
+    # HTML-Datei temporär speichern und im Browser öffnen
+    html_content = "\n".join(html_parts)
+    
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write(html_content)
+        temp_path = f.name
+    
+    webbrowser.open(Path(temp_path).as_uri())

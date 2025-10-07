@@ -277,7 +277,8 @@ def send_managers(app, mode: str | None = None) -> None:
 
     rb_year = app.rb_year_var.get()
     ab_year = app.ab_year_var.get()
-    out_root = Path(__file__).parent.parent / "tracking" / "versand"
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur Root, dann tracking/versand
+    out_root = Path(__file__).parent.parent.parent / "tracking" / "versand"
     out_root.mkdir(parents=True, exist_ok=True)
 
     # Fortschritt initialisieren
@@ -443,7 +444,8 @@ def send_selected_employees(app, mode: str | None = None) -> None:
 
     rb_year = app.rb_year_var_einzel.get()
     ab_year = app.ab_year_var_einzel.get()
-    out_root = Path(__file__).parent.parent / "tracking" / "versand"
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur Root, dann tracking/versand
+    out_root = Path(__file__).parent.parent.parent / "tracking" / "versand"
     out_root.mkdir(parents=True, exist_ok=True)
 
     mgr = pack["manager"]

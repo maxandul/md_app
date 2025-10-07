@@ -100,7 +100,8 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
     from pathlib import Path
 
     # Protokollverzeichnis aus Konfiguration beziehen
-    log_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["logs_dir"]
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    log_dir = Path(__file__).parent.parent / CFG["paths"]["logs_dir"]
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "processing_log.csv"
 
@@ -431,7 +432,8 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
     import csv
     from pathlib import Path
 
-    log_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["logs_dir"]
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    log_dir = Path(__file__).parent.parent / CFG["paths"]["logs_dir"]
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "processing_log.csv"
 
@@ -611,7 +613,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
                 status = ProcStatus.PRUEFUNG_NOETIG.value
-                target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
+                # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+                target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft (nur wenn PN vorhanden)
                 if pn and typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
@@ -645,7 +648,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 if anzahl_anstellungen > 1:
                     # Mehrfachanstellung: Manuelle Prüfung erforderlich
                     status = ProcStatus.PRUEFUNG_NOETIG.value
-                    target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
+                    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+                    target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -677,7 +681,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     is_duplicate, warning = tracking.check_duplicate(fname, pn, doc_type, vg_pn)
                     if is_duplicate:
                         status = ProcStatus.PRUEFUNG_NOETIG.value
-                        target_dir = Path(__file__).parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"  # Korrekte Pfad für manuelle Prüfung
+                        # Korrektur: Von services/ aus 3 Ebenen hoch zur Root, dann ruecklauf/...
+                        target_dir = Path(__file__).parent.parent.parent / "ruecklauf" / "unverarbeitet" / "manuell"
                         dest = target_dir / fname
                         target_dir.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(pdf_path), dest)
@@ -701,7 +706,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 else:
                     # Keine SAP-Daten gefunden
                     status = ProcStatus.PRUEFUNG_NOETIG.value
-                    target_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
+                    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+                    target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
                     dest = target_dir / fname
                     target_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_path), dest)
@@ -747,7 +753,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             # - Feedback: in projektweiten Ordner ruecklauf/feedbacks
             if status == ProcStatus.OK.value and typ == DocType.FEEDBACK:
                 # Feedback-PDFs projektweit unter <root>/ruecklauf/feedbacks ablegen
-                fb_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["feedbacks"]
+                # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+                fb_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["feedbacks"]
                 fb_dir.mkdir(parents=True, exist_ok=True)
                 # PN ggf. am Ende sicherstellen
                 ensured_name = _ensure_pn_suffix(fname, pn)
@@ -800,7 +807,8 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 "extras": {"all_tags": {}}
             })
             # Manuelle PDFs projektweit unter <root>/ruecklauf/unverarbeitet/manuell ablegen
-            manuell_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["manuell"]
+            # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+            manuell_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
             manuell_dir.mkdir(parents=True, exist_ok=True)
             shutil.move(str(pdf_path), (manuell_dir / fname))
 
@@ -836,7 +844,8 @@ def run_full_processing(app) -> None:
 def process_docx(app) -> None:
     """Controller: Prüft DOCX im Rücklauf und befüllt die DOCX-Tabelle im UI."""
     # DOCX-Eingang ist projektweit <root>/ruecklauf/unverarbeitet
-    input_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    input_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
 
     # Tabelle leeren
     for i in app.tree_proc.get_children():
@@ -899,9 +908,11 @@ def process_docx(app) -> None:
 
 def export_and_move(app) -> None:
     """Controller: Schreibt Exporte (SAP, DS) und verschiebt DOCX gemäß Status."""
-    input_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
-    sap_out = Path(__file__).parent.parent / "sap_massenupload" / "massenupload.xlsx"
-    ds_out = Path(__file__).parent.parent / "tracking" / "ds_export" / "docx_extract.csv"
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    input_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
+    # Korrektur: Von services/ aus 3 Ebenen hoch zur Root (md_app/)
+    sap_out = Path(__file__).parent.parent.parent / "sap_massenupload" / "massenupload.xlsx"
+    ds_out = Path(__file__).parent.parent.parent / "tracking" / "ds_export" / "docx_extract.csv"
 
     # 1) Falls keine Ergebnisse, DOCX scan ausführen
     if not hasattr(app, "_last_docx_results"):
@@ -923,7 +934,8 @@ def export_and_move(app) -> None:
 
 def process_pdfs_run(app) -> None:
     """Controller: Verarbeitet PDFs im Rücklauf und aktualisiert die PDF-Tabelle im UI."""
-    in_dir = Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    in_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]
     out_root = Path(app.rpa_target_var.get())
 
     if hasattr(app, "sap_df"):

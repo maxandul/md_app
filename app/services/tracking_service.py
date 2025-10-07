@@ -14,7 +14,9 @@ CFG = load_config()
 class SimpleTrackingSystem:
     def __init__(self):
         tracking_dir = (CFG.get("paths", {}) or {}).get("tracking_dir", "../tracking")
-        self.log_path = (Path(__file__).parent / tracking_dir).resolve() / "md_logging.csv"
+        # Korrektur: Von services/ aus 2 Ebenen hoch zur Root, dann tracking_dir relativ auflösen
+        base_dir = Path(__file__).parent.parent.parent  # Von services/ -> app/ -> md_app/
+        self.log_path = (base_dir / tracking_dir.lstrip("../")).resolve() / "md_logging.csv"
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ... Implementation identisch zur bisherigen simple_tracking.SimpleTrackingSystem ...

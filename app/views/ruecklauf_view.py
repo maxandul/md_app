@@ -42,7 +42,8 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     ttk.Label(toolbar, text="Ziel für neue Anhänge:").pack(side="left", padx=(16,4))
     # Standard-Ziel aus Konfiguration (<root>/ruecklauf/unverarbeitet)
     CFG = load_config()
-    app.inbox_target_var = tk.StringVar(value=str((Path(__file__).parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]).resolve()))
+    # Korrektur: Von views/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
+    app.inbox_target_var = tk.StringVar(value=str((Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]).resolve()))
     entry_target = ttk.Entry(toolbar, textvariable=app.inbox_target_var, width=60)
     entry_target.pack(side="left", padx=(0,8))
 

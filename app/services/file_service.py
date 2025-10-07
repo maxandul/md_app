@@ -27,8 +27,10 @@ def move_after_processing(input_dir: Path, results: list[dict]):
     # Projektwurzel (eine Ebene über 'app') ermitteln und feste Zielordner nutzen
     CFG = load_config()
     ruecklauf_paths = CFG.get("paths", {}).get("ruecklauf", {})
-    verarbeitet_dir = Path(__file__).parent / ruecklauf_paths.get("verarbeitet", "../ruecklauf/verarbeitet")
-    manuell_dir = Path(__file__).parent / ruecklauf_paths.get("manuell", "../ruecklauf/unverarbeitet/manuell")
+    # Korrektur: Von services/ aus 2 Ebenen hoch zur Root
+    base_dir = Path(__file__).parent.parent.parent  # Von services/ -> app/ -> md_app/
+    verarbeitet_dir = base_dir / ruecklauf_paths.get("verarbeitet", "../ruecklauf/verarbeitet").lstrip("../")
+    manuell_dir = base_dir / ruecklauf_paths.get("manuell", "../ruecklauf/unverarbeitet/manuell").lstrip("../")
     verarbeitet_dir.mkdir(parents=True, exist_ok=True)
     manuell_dir.mkdir(parents=True, exist_ok=True)
     tracking = SimpleTrackingSystem()
