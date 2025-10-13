@@ -12,10 +12,22 @@ from typing import Dict, Any
 
 from app.constants import MDConstants, DocType, ProcStatus
 
-# SAP-Spalten für Export
-SAP_COLS = [
-    "ID_NO_ZERO", "Rufname", "Nachname", "OE Bez.", "OE Kurzb.", 
-    "Plans. Bez.", "lange ID/Nummer", "Dir. Vorgesetzter (PN)", "BsGrd"
+# SAP-Massenupload-Spalten für Export
+MASSENUPLOAD_COLS = [
+    "PersNr",
+    "Beurteilungsart",
+    "Beginndatum IT9075",
+    "Endedatum IT9075",
+    "Ans.",
+    "Datum MAB",
+    "Beurteilungszeitraum von",
+    "Beurteilungszeitraum bis",
+    "Gesamtbeurteilung",
+    "Zielerreichung",
+    "Fachliche Kompetenz",
+    "Sozialkompetenz (Verhalten)",
+    "Führungskompetenz",
+    "Nächster Termin",
 ]
 
 
@@ -139,21 +151,52 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
             "Nächster Termin": pd.NaT,
         })
 
-    df_out = pd.DataFrame(rows, columns=SAP_COLS)
+    # Neue Daten erstellen
+    df_new = pd.DataFrame(rows, columns=MASSENUPLOAD_COLS)
+    
+    # Logging: Debug-Ausgabe
+    from app.logging_config import get_logger
+    logger = get_logger()
+    logger.info(f"SAP-Massenupload: {len(rows)} neue Einträge vorbereitet", extra={"count": len(rows)})
+    
+    # Prüfen ob Datei existiert -> Append-Modus
     out_xlsx.parent.mkdir(parents=True, exist_ok=True)
-    # Excel mit lokalem dd.mm.yyyy Zellformat
+    
+    if out_xlsx.exists():
+        try:
+            # Alte Daten einlesen
+            df_old = pd.read_excel(out_xlsx, sheet_name="Massenupload", engine="openpyxl")
+            
+            # Neue und alte Daten kombinieren
+            df_combined = pd.concat([df_old, df_new], ignore_index=True)
+            
+            logger.info(f"SAP-Massenupload: {len(df_old)} alte + {len(df_new)} neue = {len(df_combined)} gesamt", 
+                       extra={"old": len(df_old), "new": len(df_new), "total": len(df_combined)})
+            
+            df_out = df_combined
+        except Exception as e:
+            # Fallback: Bei Fehler beim Einlesen nur neue Daten schreiben
+            logger.warning(f"SAP-Massenupload: Fehler beim Einlesen bestehender Datei, schreibe nur neue Daten: {e}")
+            df_out = df_new
+    else:
+        # Neu erstellen
+        logger.info(f"SAP-Massenupload: Neue Datei wird erstellt mit {len(df_new)} Einträgen")
+        df_out = df_new
+    
+    # Excel mit lokalem dd.mm.yyyy Zellformat schreiben
     with pd.ExcelWriter(out_xlsx, engine="openpyxl") as wr:
         df_out.to_excel(wr, index=False, sheet_name="Massenupload")
         ws = wr.sheets["Massenupload"]
         date_cols = ["Beginndatum IT9075","Endedatum IT9075","Datum MAB","Beurteilungszeitraum von","Beurteilungszeitraum bis","Nächster Termin"]
         from openpyxl.styles import numbers
-        fmt = numbers.BUILTIN_FORMATS[14]  # 'm/d/yy' Basis, wir überschreiben auf deutsches
         for col_name in date_cols:
-            if col_name in SAP_COLS:
-                col_idx = SAP_COLS.index(col_name) + 1
+            if col_name in MASSENUPLOAD_COLS:
+                col_idx = MASSENUPLOAD_COLS.index(col_name) + 1
                 for cell in ws.iter_cols(min_col=col_idx, max_col=col_idx, min_row=2):
                     for c in cell:
                         c.number_format = "DD.MM.YYYY"
+    
+    logger.info(f"SAP-Massenupload erfolgreich gespeichert: {out_xlsx}", extra={"file": str(out_xlsx), "rows": len(df_out)})
 
 
 def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = None):

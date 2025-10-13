@@ -500,25 +500,6 @@ def _append_processing_log(results: list[dict], durchlauf_jahr: int):
             ])
 
 
-# SAP Export Funktionen
-SAP_COLS = [
-    "PersNr",
-    "Beurteilungsart",
-    "Beginndatum IT9075",
-    "Endedatum IT9075",
-    "Ans.",
-    "Datum MAB",
-    "Beurteilungszeitraum von",
-    "Beurteilungszeitraum bis",
-    "Gesamtbeurteilung",
-    "Zielerreichung",
-    "Fachliche Kompetenz",
-    "Sozialkompetenz (Verhalten)",
-    "Führungskompetenz",
-    "Nächster Termin",
-]
-
-
 def _parse_date(val: str):
     if not val:
         return pd.NaT
