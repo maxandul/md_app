@@ -14,7 +14,7 @@ import tkinter.font as tkfont
 from app.constants import MDConstants
 
 
-def make_tree(parent: ttk.Frame, cols: list[str], bind_sort) -> ttk.Treeview:
+def make_tree(parent: ttk.Frame, cols: list[str], bind_sort, height: int = None) -> ttk.Treeview:
     """Erstellt einen Treeview mit Scrollbar und optionaler Sort-Bindung.
 
     Args:
@@ -22,6 +22,7 @@ def make_tree(parent: ttk.Frame, cols: list[str], bind_sort) -> ttk.Treeview:
         cols: Spaltenüberschriften
         bind_sort: Callable(tree: ttk.Treeview, numeric_like: set|None) -> None
                    Wird verwendet, um die Sortierlogik anzubinden.
+        height: Optional - Anzahl sichtbarer Zeilen (Standard: None = unbegrenzt)
 
     Returns:
         Konfigurierter `ttk.Treeview`.
@@ -29,7 +30,11 @@ def make_tree(parent: ttk.Frame, cols: list[str], bind_sort) -> ttk.Treeview:
     frame = ttk.Frame(parent)
     frame.pack(fill="both", expand=True)
 
-    tree = ttk.Treeview(frame, columns=cols, show="headings")
+    tree_kwargs = {"columns": cols, "show": "headings"}
+    if height is not None:
+        tree_kwargs["height"] = height
+    
+    tree = ttk.Treeview(frame, **tree_kwargs)
     for c in cols:
         tree.heading(c, text=c)
         tree.column(c, width=180 if c != "Betreff" else 300, anchor="w")

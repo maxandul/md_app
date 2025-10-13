@@ -137,104 +137,6 @@ def send_selected_employees(app, mode: str | None = None) -> None:
         raise
 
 
-def preview_managers(app) -> None:
-    """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Vorgesetzte."""
-    selected_items = app.tree.selection()
-    if not selected_items:
-        raise ValueError("Bitte wählen Sie mindestens einen Vorgesetzten aus.")
-    
-    preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
-    
-    for item_id in selected_items:
-        # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
-        try:
-            values = app.tree.item(item_id, "values")
-            vg_pn = str(values[0]) if values else ""
-        except Exception:
-            vg_pn = ""
-        if vg_pn not in app.mgr_index:
-            continue
-            
-        pack = app.mgr_index[vg_pn]
-        mgr = pack["manager"]
-        subs = pack["subs"]
-        
-        if mgr is None or subs.empty:
-            continue
-            
-        preview_text += f"Vorgesetzter: {mgr.get('Nachname', '')} {mgr.get('Rufname', '')} ({vg_pn})\n"
-        preview_text += f"E-Mail: {mgr.get('lange ID/Nummer', '')}\n"
-        preview_text += f"Mitarbeiter: {len(subs)} Personen\n\n"
-        
-        for _, sub in subs.iterrows():
-            preview_text += f"  - {sub.get('Nachname', '')} {sub.get('Rufname', '')} ({sub.get('ID_NO_ZERO', '')})\n"
-        preview_text += "\n"
-    
-    # Zeige Vorschau in einem separaten Fenster
-    preview_window = tk.Toplevel(app)
-    preview_window.title("Vorschau - MD-Versand")
-    preview_window.geometry("600x400")
-    
-    text_widget = tk.Text(preview_window, wrap=tk.WORD)
-    scrollbar = ttk.Scrollbar(preview_window, orient="vertical", command=text_widget.yview)
-    text_widget.configure(yscrollcommand=scrollbar.set)
-    
-    text_widget.pack(side="left", fill="both", expand=True)
-    scrollbar.pack(side="right", fill="y")
-    
-    text_widget.insert("1.0", preview_text)
-    text_widget.config(state="disabled")
-
-
-def preview_selected(app) -> None:
-    """Zeigt Vorschau der zu versendenden Dokumente für ausgewählte Mitarbeiter."""
-    selected_items = app.tree_einzel.selection()
-    if not selected_items:
-        raise ValueError("Bitte wählen Sie mindestens einen Mitarbeiter aus.")
-    
-    preview_text = "Vorschau der zu versendenden Dokumente:\n\n"
-    
-    for item_id in selected_items:
-        # PN aus Spaltenwerten ermitteln (iid ist z.B. "<PN>_<index>")
-        try:
-            values = app.tree_einzel.item(item_id, "values")
-            vg_pn = str(values[0]) if values else ""
-        except Exception:
-            vg_pn = ""
-        if vg_pn not in app.mgr_index:
-            continue
-            
-        pack = app.mgr_index[vg_pn]
-        mgr = pack["manager"]
-        subs = pack["subs"]
-        
-        if mgr is None or subs.empty:
-            continue
-            
-        preview_text += f"Vorgesetzter: {mgr.get('Nachname', '')} {mgr.get('Rufname', '')} ({vg_pn})\n"
-        preview_text += f"E-Mail: {mgr.get('lange ID/Nummer', '')}\n"
-        preview_text += f"Mitarbeiter: {len(subs)} Personen\n\n"
-        
-        for _, sub in subs.iterrows():
-            preview_text += f"  - {sub.get('Nachname', '')} {sub.get('Rufname', '')} ({sub.get('ID_NO_ZERO', '')})\n"
-        preview_text += "\n"
-    
-    # Zeige Vorschau in einem separaten Fenster
-    preview_window = tk.Toplevel(app)
-    preview_window.title("Vorschau - MD-Versand")
-    preview_window.geometry("600x400")
-    
-    text_widget = tk.Text(preview_window, wrap=tk.WORD)
-    scrollbar = ttk.Scrollbar(preview_window, orient="vertical", command=text_widget.yview)
-    text_widget.configure(yscrollcommand=scrollbar.set)
-    
-    text_widget.pack(side="left", fill="both", expand=True)
-    scrollbar.pack(side="right", fill="y")
-    
-    text_widget.insert("1.0", preview_text)
-    text_widget.config(state="disabled")
-
-
 def render_mail_preview(app) -> None:
     """Rendert eine Vorschau der E-Mail-Inhalte."""
     # Diese Funktion kann erweitert werden, um eine detaillierte E-Mail-Vorschau zu zeigen
@@ -349,35 +251,33 @@ def send_managers(app, mode: str | None = None) -> None:
                 emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
 
                 # Bestimme Dokumenttypen basierend auf Mitarbeiter-Status
+                # Wichtig: Verwende dieselbe Logik wie determine_docset() aus dispatch_service
+                from app.services.dispatch_service import determine_docset
+                actual_doc_types = determine_docset(emp, date.today())
+                
+                # Filtere nur tracking-relevante Typen (Rückblick_Probezeit wird nicht getrackt)
                 doc_types: list[str] = []
+                for doc_type in actual_doc_types:
+                    if doc_type == "Rückblick":
+                        doc_types.append("rueckblick")
+                    elif doc_type == "Ausblick":
+                        doc_types.append("ausblick")
+                    elif doc_type == "Rückblick_Probezeit":
+                        # Rückblick_Probezeit wird NICHT getrackt (separater Prozess)
+                        pass
 
-                # Rückblick für alle
-                doc_types.append("rueckblick")
-
-                # Ausblick nur wenn nicht austretend
-                if pd.isna(emp.get("Austritt")) or emp.get("Austritt") == "":
-                    doc_types.append("ausblick")
-
-                # Probezeit-Rückblick wenn Probezeit Ende zwischen Okt-Jan
-                # HINWEIS: rueckblick_probezeit wird nicht im Tracking erfasst (separater Prozess)
-                if not pd.isna(emp.get("Ende Probezeit")):
-                    probezeit_ende = emp.get("Ende Probezeit")
-                    if isinstance(probezeit_ende, pd.Timestamp):
-                        month = probezeit_ende.month
-                        if month in MDConstants.PROBEZEIT_MONTHS:
-                            # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
-                            pass
-
-                app.tracking.log_versand(
-                    mgr_pn=vg_pn,
-                    mgr_name=mgr_name,
-                    emp_pn=emp_pn,
-                    emp_name=emp_name,
-                    doc_types=doc_types,
-                    rb_year=rb_year,
-                    ab_year=ab_year,
-                    include_feedback=False,
-                )
+                # Nur loggen wenn es tracking-relevante Dokumente gibt
+                if doc_types:
+                    app.tracking.log_versand(
+                        mgr_pn=vg_pn,
+                        mgr_name=mgr_name,
+                        emp_pn=emp_pn,
+                        emp_name=emp_name,
+                        doc_types=doc_types,
+                        rb_year=rb_year,
+                        ab_year=ab_year,
+                        include_feedback=False,
+                    )
 
         except Exception as e:
             errors.append(f"{mgr.get('Rufname','')} {mgr.get('Nachname','')} ({vg_pn}): {e}")
@@ -475,6 +375,7 @@ def send_selected_employees(app, mode: str | None = None) -> None:
             emp_pn = str(emp.get("ID_NO_ZERO", "")).strip()
             emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
 
+            # Filtere nur tracking-relevante Typen (Rückblick_Probezeit wird nicht getrackt)
             doc_types: list[str] = []
             for ui_type in types:
                 if ui_type == "Rückblick":
@@ -482,19 +383,21 @@ def send_selected_employees(app, mode: str | None = None) -> None:
                 elif ui_type == "Ausblick":
                     doc_types.append("ausblick")
                 elif ui_type == "Rückblick_Probezeit":
-                    # doc_types.append("rueckblick_probezeit")  # Auskommentiert: separater Prozess
+                    # Rückblick_Probezeit wird NICHT getrackt (separater Prozess)
                     pass
 
-            app.tracking.log_versand(
-                mgr_pn=vg_pn,
-                mgr_name=mgr_name,
-                emp_pn=emp_pn,
-                emp_name=emp_name,
-                doc_types=doc_types,
-                rb_year=rb_year,
-                ab_year=ab_year,
-                include_feedback=False,
-            )
+            # Nur loggen wenn es tracking-relevante Dokumente gibt
+            if doc_types:
+                app.tracking.log_versand(
+                    mgr_pn=vg_pn,
+                    mgr_name=mgr_name,
+                    emp_pn=emp_pn,
+                    emp_name=emp_name,
+                    doc_types=doc_types,
+                    rb_year=rb_year,
+                    ab_year=ab_year,
+                    include_feedback=False,
+                )
 
     except Exception as e:
         raise
@@ -514,63 +417,154 @@ def preview_managers(app) -> None:
     sel = app.tree.selection()
     if not sel:
         raise ValueError("Bitte mindestens eine/n Vorgesetzte/n auswählen.")
-    # Echtes VG-PN aus den Spaltenwerten lesen
-    try:
-        _mgr_values = app.tree.item(sel[0], "values")
-        vg_pn = str(_mgr_values[0]) if _mgr_values else ""
-    except Exception:
-        vg_pn = ""
-    pack = app.mgr_index.get(vg_pn)
-    if not pack or pack.get("manager") is None:
-        raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
-
-    mgr = pack["manager"]
-    vg_vorname = str(mgr.get("Rufname", "")).strip()
-    anrede = f"Hallo {vg_vorname}" if vg_vorname else "Hallo"
-
-    rb_year = app.rb_year_var.get()
-    ab_year = app.ab_year_var.get()
-
+    
     from app.data_loader import load_config
     CFG = load_config()
+    rb_year = app.rb_year_var.get()
+    ab_year = app.ab_year_var.get()
     subject_tpl = CFG.get("mail", {}).get("subject_template", "MD-Unterlagen Durchlauf {rb_year}/{ab_year}")
     body_tpl = CFG.get("mail", {}).get("body_html_template", "")
-
-    render_mail_preview(subject_tpl, body_tpl, anrede, rb_year, ab_year)
+    
+    previews = []
+    
+    # Für alle ausgewählten Vorgesetzten Vorschau erstellen
+    for item_id in sel:
+        try:
+            _mgr_values = app.tree.item(item_id, "values")
+            vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+        except Exception:
+            continue
+            
+        pack = app.mgr_index.get(vg_pn)
+        if not pack or pack.get("manager") is None:
+            continue
+            
+        mgr = pack["manager"]
+        vg_vorname = str(mgr.get("Rufname", "")).strip()
+        vg_nachname = str(mgr.get("Nachname", "")).strip()
+        to = str(mgr.get("lange ID/Nummer", "")).strip()
+        anrede = f"Hallo {vg_vorname}" if vg_vorname else "Hallo"
+        
+        try:
+            subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
+        except Exception:
+            subject = subject_tpl or ""
+        try:
+            body = body_tpl.format(anrede=anrede, rb_year=rb_year, ab_year=ab_year)
+        except Exception:
+            body = body_tpl or ""
+        
+        previews.append({
+            "to": f"{vg_vorname} {vg_nachname} <{to}>",
+            "subject": subject,
+            "body": body
+        })
+    
+    if not previews:
+        raise ValueError("Keine gültigen Vorgesetzten-Daten gefunden.")
+    
+    _show_preview_dialog("Vorschau Massenversand", previews)
 
 
 def preview_selected(app) -> None:
     """Vorschau für Einzelversand an ausgewählte Mitarbeiter."""
     sel_mgrs = app.tree_einzel.selection()
-    if len(sel_mgrs) != 1:
-        raise ValueError("Bitte genau eine/n Vorgesetzte/n auswählen.")
-    # Echtes VG-PN aus den Spaltenwerten lesen
-    try:
-        _mgr_values = app.tree_einzel.item(sel_mgrs[0], "values")
-        vg_pn = str(_mgr_values[0]) if _mgr_values else ""
-    except Exception:
-        vg_pn = ""
-    pack = app.mgr_index.get(vg_pn)
-    if not pack or pack.get("manager") is None:
-        raise LookupError("Kein gültiger Vorgesetzten-Datensatz gefunden.")
-
-    mgr = pack["manager"]
-    vg_vorname = str(mgr.get("Rufname", "")).strip()
-    anrede = f"Hallo {vg_vorname}" if vg_vorname else "Hallo"
-
-    rb_year = app.rb_year_var_einzel.get()
-    ab_year = app.ab_year_var_einzel.get()
-
+    if not sel_mgrs:
+        raise ValueError("Bitte mindestens eine/n Vorgesetzte/n auswählen.")
+    
     from app.data_loader import load_config
     CFG = load_config()
+    rb_year = app.rb_year_var_einzel.get()
+    ab_year = app.ab_year_var_einzel.get()
     subject_tpl = CFG.get("mail_underjaehrig", {}).get("subject_template", "MD-Unterlagen")
     body_tpl = CFG.get("mail_underjaehrig", {}).get("body_html_template", "")
+    
+    previews = []
+    
+    # Für alle ausgewählten Vorgesetzten Vorschau erstellen
+    for item_id in sel_mgrs:
+        try:
+            _mgr_values = app.tree_einzel.item(item_id, "values")
+            vg_pn = str(_mgr_values[0]) if _mgr_values else ""
+        except Exception:
+            continue
+            
+        pack = app.mgr_index.get(vg_pn)
+        if not pack or pack.get("manager") is None:
+            continue
+            
+        mgr = pack["manager"]
+        vg_vorname = str(mgr.get("Rufname", "")).strip()
+        vg_nachname = str(mgr.get("Nachname", "")).strip()
+        to = str(mgr.get("lange ID/Nummer", "")).strip()
+        anrede = f"Hallo {vg_vorname}" if vg_vorname else "Hallo"
+        
+        try:
+            subject = subject_tpl.format(rb_year=rb_year, ab_year=ab_year)
+        except Exception:
+            subject = subject_tpl or ""
+        try:
+            body = body_tpl.format(anrede=anrede, rb_year=rb_year, ab_year=ab_year)
+        except Exception:
+            body = body_tpl or ""
+        
+        previews.append({
+            "to": f"{vg_vorname} {vg_nachname} <{to}>",
+            "subject": subject,
+            "body": body
+        })
+    
+    if not previews:
+        raise ValueError("Keine gültigen Vorgesetzten-Daten gefunden.")
+    
+    _show_preview_dialog("Vorschau Einzelversand", previews)
 
-    render_mail_preview(subject_tpl, body_tpl, anrede, rb_year, ab_year)
+
+def _show_preview_dialog(title: str, previews: list) -> None:
+    """Zeigt Vorschau der E-Mails im Browser als HTML (gleicher Stil wie Erinnerungen)."""
+    import tempfile
+    import webbrowser
+    
+    # HTML-Dokument mit allen Vorschauen erstellen
+    html_parts = [
+        "<html><head><meta charset=\"utf-8\">",
+        "<style>",
+        "body{font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#222;margin:0;padding:0;}",
+        ".preview-container{max-width:900px;margin:20px auto;padding:20px;}",
+        ".email-preview{background:#fff;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:24px;box-shadow:0 2px 4px rgba(0,0,0,0.1);}",
+        ".email-header{background:#f5f5f5;padding:12px;border-radius:4px;margin-bottom:16px;}",
+        ".email-to{font-weight:600;color:#0066cc;margin-bottom:4px;}",
+        ".email-subject{font-weight:600;margin-bottom:4px;}",
+        ".email-body{padding:12px 0;}",
+        "h1{color:#333;font-size:24px;margin:0 0 20px 0;border-bottom:2px solid #0066cc;padding-bottom:10px;}",
+        "hr{border:none;border-top:2px solid #0066cc;margin:20px 0;}",
+        "</style></head><body>",
+        "<div class=\"preview-container\">",
+        f"<h1>{title}</h1>"
+    ]
+    
+    # Jede Preview als separate Box hinzufügen
+    for preview in previews:
+        html_parts.append("<div class=\"email-preview\">")
+        html_parts.append("<div class=\"email-header\">")
+        html_parts.append(f"<div class=\"email-to\">An: {preview['to']}</div>")
+        html_parts.append(f"<div class=\"email-subject\">Betreff: {preview['subject']}</div>")
+        html_parts.append("</div>")
+        html_parts.append(f"<div class=\"email-body\">{preview['body']}</div>")
+        html_parts.append("</div>")
+    
+    html_parts.append("</div></body></html>")
+    
+    # HTML in temporäre Datei schreiben und im Browser öffnen
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f:
+        f.write("".join(html_parts))
+        temp_path = f.name
+    
+    webbrowser.open(Path(temp_path).as_uri())
 
 
 def render_mail_preview(subject_tpl: str, body_tpl: str, anrede: str, rb_year: int, ab_year: int) -> None:
-    """Rendert eine HTML-Vorschau der E-Mail."""
+    """Rendert eine HTML-Vorschau der E-Mail (Legacy-Funktion, nicht mehr verwendet)."""
     try:
         subject = (subject_tpl or "").format(rb_year=rb_year, ab_year=ab_year)
     except Exception:

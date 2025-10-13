@@ -28,6 +28,23 @@ CFG = load_config()
 logger = get_logger()
 
 
+def _typ_to_string(typ: DocType | str | None) -> str:
+    """
+    Konvertiert Dokumenttyp in String-Darstellung.
+    
+    Args:
+        typ: Dokumenttyp (DocType-Enum, String oder None)
+        
+    Returns:
+        String-Darstellung des Dokumenttyps
+    """
+    if typ is None:
+        return "Unbekannt"
+    if isinstance(typ, DocType):
+        return typ.value
+    return str(typ)
+
+
 def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
     """
     Erstellt Index für schnelle PN-Suche in SAP-Daten.
@@ -190,7 +207,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Rückblick Word", "Pflichtfelder rb_name/rb_pn fehlen", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "Pflichtfelder rb_name/rb_pn fehlen", "extras": {"all_tags": tags}
                 })
                 continue
@@ -206,7 +223,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Rückblick Word", "PN nicht in SAP gefunden", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
                 })
                 continue
@@ -221,7 +238,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Rückblick Word", "Name passt nicht zu SAP", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
                 })
                 continue
@@ -238,7 +255,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Rückblick Word", "rb_gesamteindruck fehlt/ungültig", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.PRUEFUNG_NOETIG.value, "reason": "rb_gesamteindruck fehlt/ungültig", "extras": {"all_tags": tags}
                 })
                 continue
@@ -256,7 +273,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Rückblick Word", f"Duplikat: {warning}", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
@@ -266,7 +283,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
             
             results.append({
-                "file": p.name, "typ": typ, "pn": pn, "name": name,
+                "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                 "status": ProcStatus.OK.value, "reason": "",
                 "extras": {"rb_gesamteindruck": gi_code, "all_tags": tags}
             })
@@ -284,7 +301,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Ausblick Word", "Pflichtfelder ab_name/ab_pn fehlen", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "Pflichtfelder ab_name/ab_pn fehlen", "extras": {"all_tags": tags}
                 })
                 continue
@@ -300,7 +317,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Ausblick Word", "PN nicht in SAP gefunden", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "PN nicht in SAP gefunden", "extras": {"all_tags": tags}
                 })
                 continue
@@ -315,7 +332,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Ausblick Word", "Name passt nicht zu SAP", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": "Name passt nicht zu SAP", "extras": {"all_tags": tags}
                 })
                 continue
@@ -333,7 +350,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                     tracking.mark_error(p.name, pn, "Ausblick Word", f"Duplikat: {warning}", vg_pn)
                 
                 results.append({
-                    "file": p.name, "typ": typ, "pn": pn, "name": name,
+                    "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                     "status": ProcStatus.MANUELL.value, "reason": f"Duplikat: {warning}", "extras": {"all_tags": tags}
                 })
                 continue
@@ -343,7 +360,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 tracking.mark_received_word(vg_pn, pn, "Ausblick Word")
             
             results.append({
-                "file": p.name, "typ": typ, "pn": pn, "name": name,
+                "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
                 "status": ProcStatus.OK.value, "reason": "", "extras": {"all_tags": tags}
             })
 
@@ -529,10 +546,26 @@ def _map_beurteilungsart(typ: str | DocType) -> str:
 
 # PDF Verarbeitung - Teil 1: Hilfsfunktionen und Hauptlogik
 def _normalize(s: str) -> str:
+    """
+    Normalisiert Dateinamen für Typ-Erkennung.
+    Wandelt deutsche Umlaute in ASCII-Äquivalente um.
+    """
     if not s:
         return ""
+    # Deutsche Umlaute explizit ersetzen (vor Unicode-Normalisierung)
+    replacements = {
+        'ä': 'ae', 'Ä': 'ae',
+        'ö': 'oe', 'Ö': 'oe',
+        'ü': 'ue', 'Ü': 'ue',
+        'ß': 'ss'
+    }
+    for umlaut, replacement in replacements.items():
+        s = s.replace(umlaut, replacement)
+    
+    # Rest normalisieren
     s = unicodedata.normalize("NFKD", s)
-    return s.encode("ascii", "ignore").decode("ascii").lower()
+    s = s.encode("ascii", "ignore").decode("ascii")
+    return s.lower()
 
 
 def _ensure_pn_suffix(filename: str, pn: str) -> str:
@@ -660,7 +693,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     
                     results.append({
                         "file": fname,
-                        "typ": typ,
+                        "typ": _typ_to_string(typ),
                         "pn": pn,
                         "name": f"{matching_rows.iloc[0].get('Rufname','')} {matching_rows.iloc[0].get('Nachname','')}".strip(),
                         "status": ProcStatus.MANUELL.value,
@@ -691,7 +724,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         
                         results.append({
                             "file": fname,
-                            "typ": typ,
+                            "typ": _typ_to_string(typ),
                             "pn": pn,
                             "name": f"{row.get('Rufname','')} {row.get('Nachname','')}".strip(),
                             "status": ProcStatus.MANUELL.value,
@@ -728,7 +761,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     
                     results.append({
                         "file": fname,
-                        "typ": typ.value if isinstance(typ, DocType) else str(typ),
+                        "typ": _typ_to_string(typ),
                         "pn": pn,
                         "name": "",
                         "status": ProcStatus.MANUELL.value,
@@ -798,7 +831,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 logger.info("PDF erfolgreich verschoben", extra={"file": fname, "target": str(dest)})
                 results.append({
                 "file": fname,
-                "typ": typ,
+                "typ": _typ_to_string(typ),
                 "pn": pn,
                 "name": name,
                 "status": status,
@@ -811,7 +844,7 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             logger.error("PDF-Verarbeitungsfehler", extra={"file": fname, "error": str(e)})
             results.append({
                 "file": fname,
-                "typ": typ or "Unbekannt",
+                "typ": _typ_to_string(typ),
                 "pn": "",
                 "name": "",
                 "status": ProcStatus.PRUEFUNG_NOETIG.value,

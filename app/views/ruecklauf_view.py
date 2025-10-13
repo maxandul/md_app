@@ -25,14 +25,22 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
 
     create_info_button(
         parent=toolbar,
-        title="Info • Rücklauf",
+        title="Info • Maileingang verwalten (Rücklauf)",
         text=(
-            "Rücklauf verarbeiten\n"
-            "1) 'Posteingang scannen' prüft das Gruppenpostfach 'VD-GS HR'.\n"
-            "2) MD-Anhänge (RB/AB/Feedback) werden erkannt und kopiert.\n"
-            "3) Nur MD-Anhänge → Mail wird nach '12 Mitarbeitenden-Dialog' verschoben.\n"
-            "4) Probezeit- oder fremde Anhänge → Mail bleibt im Posteingang (Prüfen erforderlich).\n"
-            "5) Ohne MD-Anhänge → Übersprungen."
+            "Eingehende MD-Dokumente aus dem Outlook-Posteingang verarbeiten\n\n"
+            "Ablauf:\n"
+            "1) 'Posteingang scannen' durchsucht das Gruppenpostfach 'VD-GS HR'.\n"
+            "2) Anhänge werden analysiert und nach Typ klassifiziert:\n"
+            "   • Rückblick (Word/PDF)\n"
+            "   • Ausblick (Word/PDF)\n"
+            "   • Feedback (PDF)\n"
+            "   • Probezeit-Rückblick\n"
+            "   • Sonstige Dateien\n\n"
+            "3) Ergebnis-Kategorien:\n"
+            "   ✓ Kopiert & verschoben: Nur MD-Anhänge gefunden → Dateien gespeichert, Mail verschoben nach '12 Mitarbeitenden-Dialog'.\n"
+            "   ⚠ Prüfen erforderlich: Fremde/Probezeit-Anhänge gefunden → MD-Dateien gespeichert, Mail bleibt im Posteingang.\n"
+            "   ○ Übersprungen: Keine MD-Anhänge → Mail unverändert gelassen.\n\n"
+            "Zielordner: Anhänge werden nach 'ruecklauf/unverarbeitet' kopiert (anpassbar im Eingabefeld)."
         ),
         side="right",
     )
@@ -54,47 +62,64 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     app.ruecklauf_status = ttk.Label(parent, text="Noch kein Scan durchgeführt.", foreground="gray")
     app.ruecklauf_status.grid(row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
-    # Notebook für Ergebnislisten
-    app.ruecklauf_nb = ttk.Notebook(parent)
-    app.ruecklauf_nb.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
-
-    # Tabs
-    app.tab_ok = ttk.Frame(app.ruecklauf_nb)
-    app.tab_pruefen = ttk.Frame(app.ruecklauf_nb)
-    app.tab_skip = ttk.Frame(app.ruecklauf_nb)
-
-    app.ruecklauf_nb.add(app.tab_ok, text="Kopiert & verschoben")
-    app.ruecklauf_nb.add(app.tab_pruefen, text="Prüfen erforderlich")
-    app.ruecklauf_nb.add(app.tab_skip, text="Übersprungen")
-
-    # Trees je Tab
+    # ========== Sektion 1: Kopiert & verschoben ==========
+    frame_ok = ttk.LabelFrame(parent, text="✓ Kopiert & verschoben", padding=8)
+    frame_ok.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 4))
+    
     ttk.Label(
-        app.tab_ok,
-        text=(
-            "Nur MD-Anhänge gefunden: Dateien wurden gespeichert und die E-Mail in den Ordner '12 Mitarbeitenden-Dialog' verschoben."
-        ),
+        frame_ok,
+        text="Nur MD-Anhänge gefunden: Dateien wurden gespeichert und die E-Mail in den Ordner '12 Mitarbeitenden-Dialog' verschoben.",
         foreground="gray",
-    ).pack(anchor="w", padx=8, pady=(8,0))
-    app.tree_ok = make_tree(app.tab_ok, ["Datei", "Zielordner", "Absender", "Betreff"], bind_sort=lambda tree: bind_treeview_sort(tree))
+        wraplength=800
+    ).pack(anchor="w", padx=4, pady=(0, 4))
+    
+    app.tree_ok = make_tree(
+        frame_ok, 
+        ["Datei", "Zielordner", "Absender", "Betreff"], 
+        bind_sort=lambda tree: bind_treeview_sort(tree),
+        height=8
+    )
 
+    # ========== Sektion 2: Prüfen erforderlich ==========
+    frame_pruefen = ttk.LabelFrame(parent, text="⚠ Prüfen erforderlich", padding=8)
+    frame_pruefen.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=4)
+    
     ttk.Label(
-        app.tab_pruefen,
-        text=(
-            "Fremde Anhänge oder Sonderfälle gefunden: MD-Dateien wurden gespeichert; die E-Mail blieb im Posteingang (manuelle Prüfung nötig)."
-        ),
+        frame_pruefen,
+        text="Fremde Anhänge oder Sonderfälle gefunden: MD-Dateien wurden gespeichert; die E-Mail blieb im Posteingang (manuelle Prüfung nötig).",
         foreground="gray",
-    ).pack(anchor="w", padx=8, pady=(8,0))
-    app.tree_pruefen = make_tree(app.tab_pruefen, ["Grund", "Zu prüfende Dokumente", "Absender", "Betreff", "Rückblick/Ausblick/Feedback kopiert?"], bind_sort=lambda tree: bind_treeview_sort(tree))
+        wraplength=800
+    ).pack(anchor="w", padx=4, pady=(0, 4))
+    
+    app.tree_pruefen = make_tree(
+        frame_pruefen, 
+        ["Grund", "Zu prüfende Dokumente", "Absender", "Betreff", "Rückblick/Ausblick/Feedback kopiert?"], 
+        bind_sort=lambda tree: bind_treeview_sort(tree),
+        height=8
+    )
 
+    # ========== Sektion 3: Übersprungen ==========
+    frame_skip = ttk.LabelFrame(parent, text="○ Übersprungen", padding=8)
+    frame_skip.grid(row=5, column=0, columnspan=6, sticky="nsew", padx=8, pady=(4, 8))
+    
     ttk.Label(
-        app.tab_skip,
-        text=("Keine MD-Anhänge gefunden: E-Mail wurde übersprungen."),
+        frame_skip,
+        text="Keine MD-Anhänge gefunden: E-Mail wurde übersprungen.",
         foreground="gray",
-    ).pack(anchor="w", padx=8, pady=(8,0))
-    app.tree_skip = make_tree(app.tab_skip, ["Absender", "Betreff", "Grund"], bind_sort=lambda tree: bind_treeview_sort(tree))
+        wraplength=800
+    ).pack(anchor="w", padx=4, pady=(0, 4))
+    
+    app.tree_skip = make_tree(
+        frame_skip, 
+        ["Absender", "Betreff", "Grund"], 
+        bind_sort=lambda tree: bind_treeview_sort(tree),
+        height=8
+    )
 
-    # Layout-Weights
-    parent.grid_rowconfigure(3, weight=1)
+    # Layout-Weights: Jede Sektion bekommt gleichmäßig Platz
+    parent.grid_rowconfigure(3, weight=1)  # Kopiert & verschoben
+    parent.grid_rowconfigure(4, weight=1)  # Prüfen erforderlich
+    parent.grid_rowconfigure(5, weight=1)  # Übersprungen
     parent.grid_columnconfigure(5, weight=1)
 
 

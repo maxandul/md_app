@@ -84,7 +84,7 @@ def build_and_send_for_manager(
         fb_ctx = row_to_context(mgr_row, "Feedback", managers=managers_index)
         fb_ctx["fb_pn_vg"] = mgr_pn
         fb_name = (
-            f"{DocType.FEEDBACK_VORLAGE_PREFIX}"
+            f"{DocType.FEEDBACK_VORLAGE_PREFIX.value}"
             f"{mgr_row.get('Nachname','')}_{mgr_row.get('Rufname','')}_{mgr_pn}{MDConstants.ALLOWED_EXTENSIONS[0]}"
         )
         fb_path = out_dir / fb_name

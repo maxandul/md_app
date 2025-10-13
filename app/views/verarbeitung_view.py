@@ -54,11 +54,31 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
         parent=bar,
         title="Info • MD-Dokumente verarbeiten",
         text=(
-            "MD-Dokumente verarbeiten\n"
-            f"DOCX prüfen & extrahieren: Liest DOCX im Ordner '{MDConstants.RUECKLAUF_DIR}/{MDConstants.UNVERARBEITET_DIR}' und extrahiert Status.\n"
-            f"Export (SAP+DS) & verschieben: Schreibt Exporte und verschiebt Dateien nach '{MDConstants.VERARBEITET_DIR}' bzw. '{MDConstants.MANUELL_DIR}'.\n"
-            "PDFs verarbeiten: Verteilt eingehende PDFs nach RPA-Zielordner.\n"
-            "Batchgröße begrenzt die Anzahl je Lauf; Durchlauf-Jahr steuert RB/AB-Zuordnung."
+            "Eingegangene MD-Dokumente validieren und exportieren\n\n"
+            "Dieser Tab verarbeitet Dokumente aus dem Ordner 'ruecklauf/unverarbeitet',\n"
+            "die zuvor via 'Maileingang verwalten' dort gespeichert wurden.\n\n"
+            "Drei-Schritte-Prozess:\n\n"
+            "1) DOCX prüfen:\n"
+            "   • Liest Word-Dokumente (Rückblick/Ausblick)\n"
+            "   • Validiert Pflichtfelder (Name, PN, Gesamteindruck)\n"
+            "   • Prüft gegen SAP-Stammdaten\n"
+            "   • Aktualisiert Tracking-System\n"
+            "   → Ergebnis: Status 'ok' oder 'manuell'/'prüfung_nötig'\n\n"
+            "2) Export & Verschieben:\n"
+            "   • Erstellt SAP-Massenupload (sap_massenupload/massenupload.xlsx)\n"
+            "   • Erstellt DataScience-Export (tracking/ds_export/docx_extract.csv)\n"
+            f"   • Verschiebt 'ok' → '{MDConstants.VERARBEITET_DIR}'\n"
+            f"   • Verschiebt 'manuell' → '{MDConstants.UNVERARBEITET_DIR}/{MDConstants.MANUELL_DIR}'\n\n"
+            "3) PDFs verarbeiten:\n"
+            "   • Erkennt Dokumenttyp aus Dateinamen (Rückblick/Ausblick/Feedback)\n"
+            "   • Extrahiert Personalnummer\n"
+            "   • Feedback → ruecklauf/feedbacks/\n"
+            "   • Rückblick/Ausblick → RPA-Zielordner (für Roboter-Upload)\n"
+            "   • Aktualisiert Tracking-System\n\n"
+            "Einstellungen:\n"
+            "• Durchlauf-Jahr: Steuert RB/AB-Zuordnung (Standard: Aktuelles Jahr bis April, sonst Vorjahr)\n"
+            "• Batchgröße: Begrenzt Anzahl zu verarbeitender Dateien pro Lauf\n"
+            "• RPA-Zielordner: Wohin PDFs für SAP-Upload verschoben werden"
         ),
         side="right",
     )

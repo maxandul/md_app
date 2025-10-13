@@ -89,16 +89,21 @@ def build_massenversand(app) -> None:
         parent=toolbar,
         title="Info • Massenversand",
         text=(
-            "Massenversand (Jahreslauf)\n"
-            "1) Jahr wählen.\n"
-            "2) Optional über 'Suche' filtern.\n"
-            "3) Vorgesetzte markieren (Mehrfachauswahl möglich).\n"
-            "4) Button wählen: 'Generieren & Versenden' oder 'Generieren & Als Entwurf speichern'.\n\n"
-            "Dokumenten-Logik pro Mitarbeitende/n:\n"
-            "- Austritt zwischen Okt (Y) und Jan (Y+1): nur Rückblick.\n"
-            "- Ende Probezeit zwischen Okt (Y) und Jan (Y+1): Rückblick Probezeit + Ausblick.\n"
-            "- Ende Probezeit zwischen Jun und Sep (Y): nur Ausblick.\n"
-            "- Sonst: Rückblick + Ausblick.\n"
+            "Massenversand für den jährlichen MD-Durchlauf\n\n"
+            "Verwendung:\n"
+            "1) Rückblick-Jahr und Ausblick-Jahr wählen (z.B. 2025/2026).\n"
+            "2) Optional: Suchfeld nutzen um nach Namen, OE oder Personalnummer zu filtern.\n"
+            "3) Vorgesetzte auswählen (Mehrfachauswahl mit Strg/Shift möglich).\n"
+            "4) Vorschau: 'E-Mail-Vorschau' zeigt alle zu versendenden Mails.\n"
+            "5) Versand: 'Generieren & Versenden' erstellt Dokumente und verschickt sofort.\n"
+            "            'Generieren & Als Entwurf' erstellt Outlook-Entwürfe zur manuellen Prüfung.\n\n"
+            "Automatische Dokumenten-Logik pro Mitarbeiter/in:\n"
+            "• Austritt Okt-Jan: nur Rückblick\n"
+            "• Probezeit-Ende Okt-Jan: Rückblick Probezeit + Ausblick\n"
+            "• Probezeit-Ende Jun-Sep: nur Ausblick\n"
+            "• Standard: Rückblick + Ausblick\n\n"
+            "Pro Vorgesetzten wird zusätzlich eine Feedback-Vorlage erstellt.\n"
+            "Alle Dokumente werden im Tracking-System erfasst (außer Probezeit-Rückblick)."
         ),
         side="right",
     )
@@ -169,12 +174,21 @@ def build_einzelversand(app) -> None:
         parent=toolbar,
         title="Info • Einzelversand",
         text=(
-            "Einzelversand (unterjährig)\n"
-            "1) Jahr wählen.\n"
-            "2) Einen Vorgesetzten markieren.\n"
-            "3) Mitarbeitende auswählen.\n"
-            "4) Dokumenttypen ankreuzen.\n"
-            "5) Button wählen: 'Generieren & Versenden' oder 'Generieren & Als Entwurf speichern'."
+            "Einzelversand für unterjährige MD-Gespräche\n\n"
+            "Verwendung:\n"
+            "1) Rückblick-Jahr und Ausblick-Jahr wählen.\n"
+            "2) EINEN Vorgesetzten aus der oberen Liste auswählen.\n"
+            "3) In der unteren Liste erscheinen die zugeordneten Mitarbeitenden.\n"
+            "4) Gewünschte Mitarbeitende auswählen (Mehrfachauswahl möglich).\n"
+            "5) Dokumenttypen aktivieren:\n"
+            "   [x] Rückblick: Vergangenes Jahr reflektieren\n"
+            "   [x] Ausblick: Ziele für kommendes Jahr\n"
+            "   [x] Rückblick Probezeit: Für MA mit Probezeit-Ende\n"
+            "6) Vorschau: 'E-Mail-Vorschau' zeigt die zu versendende Mail.\n"
+            "7) Versand: 'Generieren & Versenden' oder 'Als Entwurf speichern'.\n\n"
+            "Hinweis: Im Gegensatz zum Massenversand können Sie hier manuell\n"
+            "steuern, welche Dokumenttypen erstellt werden.\n"
+            "Rückblick Probezeit wird NICHT im Tracking erfasst."
         ),
         side="right",
     )
@@ -263,13 +277,24 @@ def build_vg_ma_creation(app) -> None:
 
     create_info_button(
         parent=toolbar,
-        title="Info • VG-MA-Verhältnis",
+        title="Info • VG-MA-Verhältnis anlegen",
         text=(
-            "Neues VG-MA-Verhältnis anlegen\n"
-            "1) VG links auswählen.\n"
-            "2) MA rechts auswählen.\n"
-            "3) 'Neue Beziehung erstellen' legt eine neue Zeile in EXPORT.xlsx an.\n"
-            "4) App neu starten, um Änderungen zu laden."
+            "Neue Vorgesetzten-Mitarbeiter-Beziehung erstellen\n\n"
+            "Wann benötigt:\n"
+            "• Bei Neueinstellungen: Neuer MA muss einem VG zugeordnet werden\n"
+            "• Bei Wechseln: MA wechselt zu anderem VG\n"
+            "• Bei Vertretungen: Temporäre Zuordnung erforderlich\n\n"
+            "Vorgehen:\n"
+            "1) Suche: Vorgesetzten links im Suchfeld finden und auswählen.\n"
+            "2) Suche: Mitarbeiter/in rechts im Suchfeld finden und auswählen.\n"
+            "3) 'Neue Beziehung erstellen' klicken.\n"
+            "4) System fügt neue Zeile in EXPORT.xlsx hinzu.\n"
+            "5) App neu starten, damit Änderungen wirksam werden.\n\n"
+            "Hinweis: Diese Funktion erzeugt einen neuen Datensatz mit:\n"
+            "• Kopie der MA-Stammdaten\n"
+            "• Neue Zuordnung zum gewählten VG\n"
+            "• BsGrd=0 (wird später in SAP korrigiert)\n\n"
+            "Warnung: Änderungen sind sofort in EXPORT.xlsx gespeichert!"
         ),
         side="right",
     )
