@@ -22,6 +22,7 @@ def refresh_dashboard(app) -> None:
     try:
         name_search = app.dash_name_search.get().strip().lower()
         status_filter = app.dash_status_filter.get().strip()
+        oe_search = app.dash_oe_search.get().strip().lower() if hasattr(app, 'dash_oe_search') else ""
 
         df = app.tracking.get_dashboard_data(filter_status=status_filter)
         if df.empty:
@@ -33,6 +34,10 @@ def refresh_dashboard(app) -> None:
                 | df["ma_name"].astype(str).str.lower().str.contains(name_search, na=False)
             )
             df = df[name_mask]
+        
+        if oe_search:
+            oe_mask = df["oe_bez_kette"].astype(str).str.lower().str.contains(oe_search, na=False)
+            df = df[oe_mask]
 
         def safe_value(val):
             try:
@@ -88,6 +93,7 @@ def refresh_dashboard(app) -> None:
                     safe_value(row.get("status_grund", "")),
                     safe_value(row.get("versendet_am", "")),
                     safe_value(row.get("zuletzt_erinnert_am", "")),
+                    safe_value(row.get("oe_bez_kette", "")),
                 ),
                 tags=(tag,) if tag else (),
             )

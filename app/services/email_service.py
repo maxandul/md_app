@@ -183,6 +183,15 @@ def send_managers(app, mode: str | None = None) -> None:
     out_root = Path(__file__).parent.parent.parent / "tracking" / f"versand_{rb_year}"
     out_root.mkdir(parents=True, exist_ok=True)
 
+    # Organisationsstruktur für oe_bez_kette aufbauen
+    org_structure_lookup = {}
+    try:
+        from app.services.org_structure_service import build_org_structure
+        org_df = build_org_structure(app.df)
+        org_structure_lookup = org_df.set_index("Personalnummer")["OE_Bez_Kette"].to_dict()
+    except Exception as e:
+        logger.warning(f"Org-Struktur konnte nicht geladen werden: {e}")
+
     # Fortschritt initialisieren
     try:
         total = len(sel)
@@ -241,14 +250,20 @@ def send_managers(app, mode: str | None = None) -> None:
 
             # Tracking: Logge Versand für jeden Mitarbeiter
             mgr_name = f"{mgr.get('Rufname','')} {mgr.get('Nachname','')}"
+            
+            # OE-Kette für Vorgesetzten (für Feedback)
+            vg_oe_kette = org_structure_lookup.get(vg_pn, "")
 
             # Erst: Feedback einmal pro Vorgesetzten loggen
-            app.tracking.log_feedback_for_manager(vg_pn, mgr_name, rb_year, app.mgr_index)
+            app.tracking.log_feedback_for_manager(vg_pn, mgr_name, rb_year, app.mgr_index, vg_oe_kette)
 
             # Dann: Dokumente pro Mitarbeiter loggen
             for _, emp in subs.iterrows():
                 emp_pn = str(emp.get("ID_NO_ZERO", "")).strip()
                 emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
+                
+                # OE-Kette für Mitarbeiter aus org_structure
+                emp_oe_kette = org_structure_lookup.get(emp_pn, "")
 
                 # Bestimme Dokumenttypen basierend auf Mitarbeiter-Status
                 # Wichtig: Verwende dieselbe Logik wie determine_docset() aus dispatch_service
@@ -277,6 +292,7 @@ def send_managers(app, mode: str | None = None) -> None:
                         rb_year=rb_year,
                         ab_year=ab_year,
                         include_feedback=False,
+                        oe_bez_kette=emp_oe_kette,
                     )
 
         except Exception as e:
@@ -348,6 +364,15 @@ def send_selected_employees(app, mode: str | None = None) -> None:
     out_root = Path(__file__).parent.parent.parent / "tracking" / f"versand_{rb_year}"
     out_root.mkdir(parents=True, exist_ok=True)
 
+    # Organisationsstruktur für oe_bez_kette aufbauen
+    org_structure_lookup = {}
+    try:
+        from app.services.org_structure_service import build_org_structure
+        org_df = build_org_structure(app.df)
+        org_structure_lookup = org_df.set_index("Personalnummer")["OE_Bez_Kette"].to_dict()
+    except Exception as e:
+        logger.warning(f"Org-Struktur konnte nicht geladen werden: {e}")
+
     mgr = pack["manager"]
     try:
         if hasattr(app, "es_progress"):
@@ -374,6 +399,9 @@ def send_selected_employees(app, mode: str | None = None) -> None:
         for _, emp in subs_filtered.iterrows():
             emp_pn = str(emp.get("ID_NO_ZERO", "")).strip()
             emp_name = f"{emp.get('Rufname','')} {emp.get('Nachname','')}"
+            
+            # OE-Kette für Mitarbeiter aus org_structure
+            emp_oe_kette = org_structure_lookup.get(emp_pn, "")
 
             # Filtere nur tracking-relevante Typen (Rückblick_Probezeit wird nicht getrackt)
             doc_types: list[str] = []
@@ -396,6 +424,7 @@ def send_selected_employees(app, mode: str | None = None) -> None:
                     doc_types=doc_types,
                     rb_year=rb_year,
                     ab_year=ab_year,
+                    oe_bez_kette=emp_oe_kette,
                     include_feedback=False,
                 )
 

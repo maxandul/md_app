@@ -251,39 +251,22 @@ def export_ds_csv(results: list[dict], out_csv: Path, sap_df: pd.DataFrame = Non
         if pn and pn in hierarchy_data:
             h_data = hierarchy_data[pn]
             
-            # Basis-Hierarchie-Informationen
+            # Reduzierte Hierarchie-Informationen (nur die wichtigsten Felder)
             base_hierarchy = {
-                "hierarchie_ebene": h_data.get("Hierarchie_Ebene", ""),
-                "oe_kurz": h_data.get("OE_Kurz", ""),
-                "oe_bez": h_data.get("OE_Bez", ""),
                 "position": h_data.get("Position", ""),
                 "vg_pn": h_data.get("Vorgesetzter_PN", ""),
                 "vg_name": h_data.get("Vorgesetzter_Name", ""),
-                "vg_oe": h_data.get("Vorgesetzter_OE", ""),
-                "org_pfad": h_data.get("Organisations_Pfad", ""),
-                "oe_hierarchie": h_data.get("OE_Hierarchie", ""),
-                "oe_kette": h_data.get("OE_Kette", ""),
                 "oe_bez_kette": h_data.get("OE_Bez_Kette", ""),
-                "status_ma": h_data.get("Status", "")
             }
             
-            # Nur Basis-Hierarchie und Ketten (keine org_level_* Spalten)
             row.update(base_hierarchy)
         else:
             # Leere Werte für fehlende Hierarchie-Daten
             empty_values = {
-                "hierarchie_ebene": "",
-                "oe_kurz": "",
-                "oe_bez": "",
                 "position": "",
                 "vg_pn": "",
                 "vg_name": "",
-                "vg_oe": "",
-                "org_pfad": "",
-                "oe_hierarchie": "",
-                "oe_kette": "",
                 "oe_bez_kette": "",
-                "status_ma": ""
             }
             
             row.update(empty_values)

@@ -51,7 +51,9 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
             "    · ausstehend: Dokument noch nicht eingegangen\n"
             "    · erhalten: Dokuemnt eingegangen\n"
             "    · prüfung_nötig: Fehler bei Verarbeitung (siehe Grund)\n"
-            "    · erübrigt: Manuell als nicht mehr relevant markiert\n\n"
+            "    · erübrigt: Manuell als nicht mehr relevant markiert\n"
+            "  - OE: Suche nach Organisationseinheit (enthält-Logik)\n"
+            "    Beispiel: 'Human Resources' findet alle HR-Mitarbeiter\n\n"
             "• Manuelle Anpassung:\n"
             "  Einzelnen Eintrag auswählen und Status/Grund ändern.\n"
             "  Nützlich bei Sonderfällen oder Korrekturen.\n\n"
@@ -101,6 +103,11 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     app.dash_status_filter.pack(side="left", padx=(0, 16))
     app.dash_status_filter.bind("<<ComboboxSelected>>", lambda e: refresh_dashboard(app))
 
+    ttk.Label(filter_frame, text="OE:").pack(side="left", padx=(0, 4))
+    app.dash_oe_search = ttk.Entry(filter_frame, width=20)
+    app.dash_oe_search.pack(side="left", padx=(0, 16))
+    app.dash_oe_search.bind("<KeyRelease>", lambda e: refresh_dashboard(app))
+
     ttk.Button(filter_frame, text="Anwenden", command=lambda: refresh_dashboard(app)).pack(side="left")
 
     # Status-Überschrift
@@ -120,6 +127,7 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
         "Status Grund",
         "Versendet am",
         "Zuletzt erinnert am",
+        "OE-Kette",
     ]
     app.tree_dashboard = ttk.Treeview(parent, columns=cols, show="headings", height=15)
     configure_treeview_for_alternating_rows(app.tree_dashboard)
@@ -142,6 +150,8 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
             app.tree_dashboard.column(c, width=80, anchor="w")
         elif c in ["Zuletzt erinnert am", "Versendet am"]:
             app.tree_dashboard.column(c, width=140, anchor="w")
+        elif c == "OE-Kette":
+            app.tree_dashboard.column(c, width=250, anchor="w")
         else:
             app.tree_dashboard.column(c, width=150, anchor="w")
 
