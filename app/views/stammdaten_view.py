@@ -11,6 +11,7 @@ from tkinter import ttk
 
 from app.utils import create_info_button
 from app.views.ui_utils import autosize_tree_columns
+from app.theme import configure_treeview_for_alternating_rows
 
 
 def build_stammdaten(parent: ttk.Frame, app) -> None:
@@ -22,7 +23,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
     bar.grid(row=0, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
 
     from app.controllers.stammdaten_controller import check_stammdaten
-    ttk.Button(bar, text="Aktualisieren", command=lambda: check_stammdaten(app)).pack(side="left")
+    ttk.Button(bar, text="Aktualisieren", command=lambda: check_stammdaten(app), style='Primary.TButton').pack(side="left")
 
     create_info_button(
         parent=bar,
@@ -30,16 +31,21 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
             "Überblick:\n"
             "• 'Aktualisieren' lädt EXPORT.xlsx und prüft Pflichtspalten.\n"
             "• 'Prüfpunkte' zeigen Lade- und Spalten-Checks.\n"
-            "• 'Auffällige Einträge' listet BsGrd=0, doppelte PN und ungültige VG-PN.\n\n"
+            "• 'Auffällige Einträge' listet BsGrd=0, doppelte PN und ungültige VG-PN.\n"
+            "   Diese müssen ggf. manuell korrigiert/gelöscht werden.\n\n"
             "Vorbereitung EXPORT.xlsx:\n"
-            "1) Spalten (erste Zeile, exakt):\n"
+            "1) ad-hoc Query 'VD_MD' aus SAP exportieren\n"
+            "2) Dateiname & Ort: 'EXPORT.xlsx' im Ordner 'sap_stammdaten'.\n"
+            "3) Spalten (erste Zeile, exakt):\n"
             "   ID_NO_ZERO, Rufname, Nachname, OE Bez., OE Kurzb., Plans. Bez.,\n"
             "   lange ID/Nummer, Dir. Vorgesetzter (PN), BsGrd\n"
-            "2) Keine zusammengeführten Zellen oder zusätzlichen Kopfzeilen.\n"
-            "3) Formate: Text/Allgemein ok; Datumsfelder dürfen echte Datumswerte sein.\n"
-            "4) Personalnummern: Führende Nullen erlaubt – Längenabgleich erfolgt automatisch.\n"
-            "5) Dateiname & Ort: 'EXPORT.xlsx' im Ordner 'sap_stammdaten'.\n\n"
-            "Bei Abweichungen zeigt der Tab fehlende Spalten und problematische Einträge."
+            "4) Alle GsGrd = 0 löschen.\n"
+            "5) Mehrere Bewilligungen führen zu mehreren Zeilen. Alle Bewilligungen\n"
+            "   in eine Zeile zusammenführen. Restliche Zeilen löschen.\n"
+            "6) ID_NO_ZERO auf Duplikate prüfen und Duplikatelöschen.\n"
+            "   Mehrfachanstellungen brauchen pro Anstellung eine Zeile.\n"
+            "7) Zeilen mit Dir. Vorgesetzter (PN) = 0 sind erlaubt und können\n"
+            "   später ergänzt werden."
         ),
         title="Info • SAP Stammdaten prüfen",
         side="right",
@@ -53,7 +59,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
         text=(
             "Prüfpunkte: Hier siehst du, ob Pflichtspalten vorhanden sind und ob das Laden der Datei geklappt hat."
         ),
-        foreground="gray",
+        style='InfoText.TLabel',
     ).grid(row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(0,4))
 
     cols_missing = ["Prüfpunkte", "Ergebnis"]
@@ -61,15 +67,16 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
     for c in cols_missing:
         app.tree_checks.heading(c, text=c)
         app.tree_checks.column(c, width=360 if c == "Prüfpunkte" else 220, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree_checks)
     app.tree_checks.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
 
     ttk.Label(
         parent,
         text=(
-            "Auffällige Einträge: Zeigt Datensätze mit BsGrd=0, doppelter PersNr (ID_NO_ZERO) oder ungültiger VG-PN. "
-            "Diese sind informativ – sie werden NICHT automatisch vom Versand ausgeschlossen."
+            "Auffällige Einträge: Zeigt Zeilen mit BsGrd=0, doppelter PersNr (ID_NO_ZERO) oder ungültiger VG-PN. "
+            "Diese sind zu prüfen, können aber berechtigt sein (s. Infobox)."
         ),
-        foreground="gray",
+        style='InfoText.TLabel',
     ).grid(row=4, column=0, columnspan=6, sticky="w", padx=8, pady=(8,4))
 
     cols_findings = ["Kategorie", "PersNr", "Nachname", "Vorname", "Details"]
@@ -77,6 +84,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
     for c in cols_findings:
         app.tree_findings.heading(c, text=c)
         app.tree_findings.column(c, width=160 if c not in ("Details",) else 320, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree_findings)
     app.tree_findings.grid(row=5, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
 
     # Sortierbare Findings-Tabelle

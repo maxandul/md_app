@@ -15,6 +15,7 @@ from datetime import datetime
 
 from app.constants import MDConstants, ProcStatus, DashTag
 from app.data_loader import load_employees, load_config
+from app.theme import get_row_tag
 
 
 def check_stammdaten(app) -> None:
@@ -40,7 +41,7 @@ def check_stammdaten(app) -> None:
     try:
         df = load_employees()
     except Exception as e:
-        app.tree_checks.insert("", "end", values=["Datei laden", f"Fehler: {e}"])
+        app.tree_checks.insert("", "end", values=["Datei laden", f"Fehler: {e}"], tags=(get_row_tag(0),))
         return
 
     # 4. Pflichtspalten-Validierung
@@ -48,11 +49,12 @@ def check_stammdaten(app) -> None:
     df_cols = set(df.columns)
     missing = [c for c in required_cols if c not in df_cols]
     if missing:
-        app.tree_checks.insert("", "end", values=["Pflichtspalten vorhanden", f"FEHLT: {', '.join(missing)}"])
+        app.tree_checks.insert("", "end", values=["Pflichtspalten vorhanden", f"FEHLT: {', '.join(missing)}"], tags=(get_row_tag(0),))
     else:
-        app.tree_checks.insert("", "end", values=["Pflichtspalten vorhanden", "OK"])
+        app.tree_checks.insert("", "end", values=["Pflichtspalten vorhanden", "OK"], tags=(get_row_tag(0),))
 
     # 5. Beschäftigungsgrad = 0 prüfen
+    findings_idx = 0
     if "BsGrd" in df.columns:
         bs0 = df[df["BsGrd"].astype(str).str.strip().isin(["0","0.0"])]
         for _, r in bs0.iterrows():
@@ -62,7 +64,8 @@ def check_stammdaten(app) -> None:
                 str(r.get("Nachname","")),
                 str(r.get("Rufname","")),
                 "Beschäftigungsgrad=0"
-            ])
+            ], tags=(get_row_tag(findings_idx),))
+            findings_idx += 1
 
     # 6. Duplikat-Erkennung bei Personalnummern
     if "ID_NO_ZERO" in df.columns:
@@ -77,7 +80,8 @@ def check_stammdaten(app) -> None:
                 str(r.get("Nachname","")),
                 str(r.get("Rufname","")),
                 "Mehrfach vorhandene Personalnummer"
-            ])
+            ], tags=(get_row_tag(findings_idx),))
+            findings_idx += 1
 
     # 7. Vorgesetzten-PN Validierung (leer oder nur Nullen)
     if "Dir. Vorgesetzter (PN)" in df.columns:
@@ -91,7 +95,8 @@ def check_stammdaten(app) -> None:
                 str(r.get("Nachname","")),
                 str(r.get("Rufname","")),
                 "Kein gültiger Wert in 'Dir. Vorgesetzter (PN)'"
-            ])
+            ], tags=(get_row_tag(findings_idx),))
+            findings_idx += 1
 
     try:
         from views.ui_utils import autosize_tree_columns
@@ -219,7 +224,7 @@ def refresh_mgr_table(app) -> None:
             mgr.get("Rufname", ""),
             mgr.get("OE Kurzb.", ""),
             subs_count,
-        ])
+        ], tags=(get_row_tag(i),))
 
 
 def refresh_mgr_table_einzel(app) -> None:
@@ -256,7 +261,7 @@ def refresh_mgr_table_einzel(app) -> None:
             mgr.get("Rufname", ""),
             mgr.get("OE Kurzb.", ""),
             subs_count,
-        ])
+        ], tags=(get_row_tag(i),))
 
 
 def refresh_vg_list(app) -> None:
@@ -287,7 +292,7 @@ def refresh_vg_list(app) -> None:
             mgr.get("Nachname", ""),
             mgr.get("Rufname", ""),
             mgr.get("OE Kurzb.", ""),
-        ])
+        ], tags=(get_row_tag(i),))
 
 
 def refresh_ma_list(app) -> None:
@@ -318,7 +323,7 @@ def refresh_ma_list(app) -> None:
             str(r.get("Nachname","")),
             str(r.get("Rufname","")),
             str(r.get("OE Kurzb.","")),
-        ])
+        ], tags=(get_row_tag(i),))
 
 
 def update_selection_status(app) -> None:

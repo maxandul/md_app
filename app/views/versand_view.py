@@ -15,6 +15,7 @@ from tkinter import ttk
 from app.data_loader import load_employees, build_manager_index
 from app.utils import create_info_button
 from app.constants import MDConstants
+from app.theme import configure_treeview_for_alternating_rows
 
 
 def build_versand(parent: ttk.Frame, app) -> None:
@@ -114,6 +115,7 @@ def build_massenversand(app) -> None:
     for c in cols:
         app.tree.heading(c, text=c)
         app.tree.column(c, width=120 if c in ("PN", "Anzahl MA") else 200, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree)
     app.tree.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
     app._bind_treeview_sort(app.tree, numeric_like={"PN", "Anzahl MA"})
 
@@ -124,7 +126,7 @@ def build_massenversand(app) -> None:
     btn_frame = ttk.Frame(app.frame_massenversand)
     btn_frame.grid(row=3, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
     from app.controllers.versand_controller import send_managers, preview_managers
-    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_managers(app, mode="send")).pack(side="left")
+    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_managers(app, mode="send"), style='Primary.TButton').pack(side="left")
     ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_managers(app, mode="display")).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_managers(app)).pack(side="left", padx=(8,0))
 
@@ -199,6 +201,7 @@ def build_einzelversand(app) -> None:
     for c in cols:
         app.tree_einzel.heading(c, text=c)
         app.tree_einzel.column(c, width=120 if c in ("PN", "Anzahl MA") else 200, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree_einzel)
     app.tree_einzel.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
     app._bind_treeview_sort(app.tree_einzel, numeric_like={"PN", "Anzahl MA"})
 
@@ -207,6 +210,7 @@ def build_einzelversand(app) -> None:
     for c in ["PN", "Nachname", "Vorname", "OE"]:
         app.subs_tree.heading(c, text=c)
         app.subs_tree.column(c, width=80 if c == "PN" else 100, anchor="w")
+    configure_treeview_for_alternating_rows(app.subs_tree)
     app.subs_tree.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
     app._bind_treeview_sort(app.subs_tree, numeric_like={"PN"})
 
@@ -224,7 +228,7 @@ def build_einzelversand(app) -> None:
     btn_frame = ttk.Frame(app.frame_einzelversand)
     btn_frame.grid(row=6, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
     from app.controllers.versand_controller import send_selected_employees, preview_selected
-    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_selected_employees(app, mode="send")).pack(side="left")
+    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_selected_employees(app, mode="send"), style='Primary.TButton').pack(side="left")
     ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_selected_employees(app, mode="display")).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_selected(app)).pack(side="left", padx=(8,0))
 
@@ -316,6 +320,7 @@ def build_vg_ma_creation(app) -> None:
     for c in ["PN", "Nachname", "Vorname", "OE"]:
         app.vg_tree.heading(c, text=c)
         app.vg_tree.column(c, width=80 if c == "PN" else 120, anchor="w")
+    configure_treeview_for_alternating_rows(app.vg_tree)
     app.vg_tree.pack(fill="both", expand=True, padx=8, pady=(0,8))
     app._bind_treeview_sort(app.vg_tree, numeric_like={"PN"})
 
@@ -335,6 +340,7 @@ def build_vg_ma_creation(app) -> None:
     for c in ["PN", "Nachname", "Vorname", "OE"]:
         app.ma_tree.heading(c, text=c)
         app.ma_tree.column(c, width=80 if c == "PN" else 120, anchor="w")
+    configure_treeview_for_alternating_rows(app.ma_tree)
     app.ma_tree.pack(fill="both", expand=True, padx=8, pady=(0,8))
     app._bind_treeview_sort(app.ma_tree, numeric_like={"PN"})
 

@@ -22,6 +22,7 @@ from app.views.ui_utils import autosize_tree_columns
 from app.services.org_structure_service import build_org_structure
 from app.services.export_service import export_sap_massenupload, export_ds_csv
 from app.services.file_service import move_after_processing
+from app.theme import get_row_tag
 
 # Konfiguration einmalig laden für zentrale Pfade
 CFG = load_config()
@@ -892,7 +893,7 @@ def process_docx(app) -> None:
     ok_count = 0
     man_count = 0
 
-    for r in results:
+    for idx, r in enumerate(results):
         status = r.get("status", "")
         if status == ProcStatus.OK.value:
             target = "verarbeitet"
@@ -913,6 +914,7 @@ def process_docx(app) -> None:
                 r.get("reason",""),
                 target,
             ],
+            tags=(get_row_tag(idx),)
         )
         if status == ProcStatus.OK.value:
             ok_count += 1
@@ -997,7 +999,7 @@ def process_pdfs_run(app) -> None:
     for item in app.tree_pdfs.get_children():
         app.tree_pdfs.delete(item)
 
-    for r in results:
+    for idx, r in enumerate(results):
         app.tree_pdfs.insert(
             "",
             "end",
@@ -1010,6 +1012,7 @@ def process_pdfs_run(app) -> None:
                 r.get("reason", ""),
                 r.get("target", ""),
             ),
+            tags=(get_row_tag(idx),)
         )
 
     try:

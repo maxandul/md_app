@@ -12,6 +12,7 @@ from tkinter import ttk
 import tkinter.font as tkfont
 
 from app.constants import MDConstants
+from app.theme import configure_treeview_for_alternating_rows
 
 
 def make_tree(parent: ttk.Frame, cols: list[str], bind_sort, height: int = None) -> ttk.Treeview:
@@ -38,6 +39,7 @@ def make_tree(parent: ttk.Frame, cols: list[str], bind_sort, height: int = None)
     for c in cols:
         tree.heading(c, text=c)
         tree.column(c, width=180 if c != "Betreff" else 300, anchor="w")
+    configure_treeview_for_alternating_rows(tree)
     tree.pack(side="left", fill="both", expand=True)
 
     scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)

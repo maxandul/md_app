@@ -14,6 +14,7 @@ from tkinter import ttk
 from app.constants import MDConstants
 from app.utils import create_info_button
 from app.data_loader import load_config
+from app.theme import configure_treeview_for_alternating_rows
 
 
 def build_verarbeitung(parent: ttk.Frame, app) -> None:
@@ -47,7 +48,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
     ttk.Entry(bar, textvariable=app.batch_size_var, width=6).pack(side="left", padx=(0,12))
 
     from app.controllers.verarbeitung_controller import run_full_processing
-    ttk.Button(bar, text="Verarbeitung starten", command=lambda: run_full_processing(app)).pack(side="left")
+    ttk.Button(bar, text="Verarbeitung starten", command=lambda: run_full_processing(app), style='Primary.TButton').pack(side="left")
 
     # Info-Button
     create_info_button(
@@ -88,7 +89,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
     app.proc_status.grid(row=1, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
     # Überschrift und Erklärung für DOCX-Verarbeitung
-    ttk.Label(parent, text="Word-Dokumente:", font=("TkDefaultFont", 10, "bold")).grid(
+    ttk.Label(parent, text="Word-Dokumente:", style='SectionHeading.TLabel').grid(
         row=2, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4)
     )
 
@@ -98,7 +99,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             "Verarbeitete Word-Dokumente mit extrahierten Steuerelement-Inhalten. "
             "Status zeigt ob Dokument korrekt verarbeitet wurde oder manuelle Prüfung benötigt."
         ),
-        foreground="gray",
+        style='InfoText.TLabel',
         wraplength=800,
     )
     docx_info.grid(row=3, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
@@ -116,11 +117,12 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             app.tree_proc.column(c, width=260, anchor="w")
         else:
             app.tree_proc.column(c, width=180, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree_proc)
     app.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
     app._bind_treeview_sort(app.tree_proc, numeric_like={"PN"})
 
     # Überschrift und Erklärung für PDF-Verarbeitung
-    ttk.Label(parent, text="PDF-Dokumente:", font=("TkDefaultFont", 10, "bold")).grid(
+    ttk.Label(parent, text="PDF-Dokumente:", style='SectionHeading.TLabel').grid(
         row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4)
     )
 
@@ -131,7 +133,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             "Bei Mehrfachanstellungen ist manuelle Prüfung erforderlich. "
             "Ziel zeigt, wohin die Datei verschoben wurde."
         ),
-        foreground="gray",
+        style='InfoText.TLabel',
         wraplength=800,
     )
     pdf_info.grid(row=6, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
@@ -147,6 +149,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             app.tree_pdfs.column(c, width=100, anchor="w")
         else:
             app.tree_pdfs.column(c, width=140, anchor="w")
+    configure_treeview_for_alternating_rows(app.tree_pdfs)
     app.tree_pdfs.grid(row=7, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 8))
     app._bind_treeview_sort(app.tree_pdfs, numeric_like={"PN"})
 

@@ -35,6 +35,7 @@ try:
     from logging_config import setup_logging
     from utils import create_info_button
     from services.tracking_service import SimpleTrackingSystem
+    from theme import apply_theme
 except ImportError:
     # Fallback für Modul-Import
     from .data_loader import load_employees, load_config, build_manager_index, validate_config
@@ -42,6 +43,7 @@ except ImportError:
     from .logging_config import setup_logging
     from .utils import create_info_button
     from .services.tracking_service import SimpleTrackingSystem
+    from .theme import apply_theme
 
 CFG = load_config()
 # Logging initialisieren: Konsole + Logdatei unter tracking/app.log
@@ -154,8 +156,12 @@ class App(tk.Tk):
     def __init__(self) -> None:
         """Initialisiert die Hauptanwendung und erstellt die GUI-Struktur."""
         super().__init__()
+        
+        # Theme anwenden (vor allen anderen GUI-Elementen!)
+        apply_theme(self)
+        
         self.title("MD-Prozess-Tool")
-        self.geometry("1200x800")
+        self.geometry("1400x900")
 
         # Jahr-Variable ZENTRAL anlegen (wichtig, sonst None im Callback)
         self.jahr_var = tk.IntVar(value=date.today().year)

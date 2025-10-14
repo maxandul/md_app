@@ -46,13 +46,13 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     )
 
     from app.controllers.ruecklauf_controller import scan_real
-    ttk.Button(toolbar, text="Posteingang scannen", command=lambda: scan_real(app)).pack(side="left", padx=(0, 8))
+    ttk.Button(toolbar, text="Posteingang scannen", command=lambda: scan_real(app), style='Primary.TButton').pack(side="left", padx=(0, 8))
     ttk.Label(toolbar, text="Ziel für neue Anhänge:").pack(side="left", padx=(16,4))
     # Standard-Ziel aus Konfiguration (<root>/ruecklauf/unverarbeitet)
     CFG = load_config()
     # Korrektur: Von views/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
     app.inbox_target_var = tk.StringVar(value=str((Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["unverarbeitet"]).resolve()))
-    entry_target = ttk.Entry(toolbar, textvariable=app.inbox_target_var, width=60)
+    entry_target = ttk.Entry(toolbar, textvariable=app.inbox_target_var, width=85)
     entry_target.pack(side="left", padx=(0,8))
 
     # Statuslabels
@@ -69,7 +69,7 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     ttk.Label(
         frame_ok,
         text="Nur MD-Anhänge gefunden: Dateien wurden gespeichert und die E-Mail in den Ordner '12 Mitarbeitenden-Dialog' verschoben.",
-        foreground="gray",
+        style='InfoText.TLabel',
         wraplength=800
     ).pack(anchor="w", padx=4, pady=(0, 4))
     
@@ -87,7 +87,7 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     ttk.Label(
         frame_pruefen,
         text="Fremde Anhänge oder Sonderfälle gefunden: MD-Dateien wurden gespeichert; die E-Mail blieb im Posteingang (manuelle Prüfung nötig).",
-        foreground="gray",
+        style='InfoText.TLabel',
         wraplength=800
     ).pack(anchor="w", padx=4, pady=(0, 4))
     
@@ -105,7 +105,7 @@ def build_ruecklauf(parent: ttk.Frame, app) -> None:
     ttk.Label(
         frame_skip,
         text="Keine MD-Anhänge gefunden: E-Mail wurde übersprungen.",
-        foreground="gray",
+        style='InfoText.TLabel',
         wraplength=800
     ).pack(anchor="w", padx=4, pady=(0, 4))
     

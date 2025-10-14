@@ -14,6 +14,7 @@ from app.data_loader import load_config
 
 from app.constants import MDConstants, ProcStatus
 from app.logging_config import get_logger
+from app.theme import get_row_tag
 logger = get_logger()
 
 
@@ -49,6 +50,7 @@ def scan_real(app) -> None:
         pass
 
     found = copied = moved = to_check = skipped = 0
+    ok_idx = pruefen_idx = skip_idx = 0
     logger.info("Outlook-Scan gestartet")
 
     for mail in inbox.Items:
@@ -67,7 +69,8 @@ def scan_real(app) -> None:
             files.append((fname, att))
 
         if not files:
-            app.tree_skip.insert("", "end", values=[sender, subject, "Keine Anhänge"])
+            app.tree_skip.insert("", "end", values=[sender, subject, "Keine Anhänge"], tags=(get_row_tag(skip_idx),))
+            skip_idx += 1
             skipped += 1
             continue
 
@@ -81,7 +84,8 @@ def scan_real(app) -> None:
                 if fname in md_files:
                     save_path = base_path / fname
                     att.SaveAsFile(str(save_path))
-                    app.tree_ok.insert("", "end", values=[fname, str(base_path), sender, subject])
+                    app.tree_ok.insert("", "end", values=[fname, str(base_path), sender, subject], tags=(get_row_tag(ok_idx),))
+                    ok_idx += 1
                     copied += 1
             try:
                 mail.Move(target_folder)
@@ -91,7 +95,8 @@ def scan_real(app) -> None:
 
         elif probezeit_files:
             grund = "Probezeit"
-            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(probezeit_files) or "Keine", sender, subject, "Keine"])
+            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(probezeit_files) or "Keine", sender, subject, "Keine"], tags=(get_row_tag(pruefen_idx),))
+            pruefen_idx += 1
             to_check += 1
 
         elif md_files and other_files:
@@ -103,17 +108,20 @@ def scan_real(app) -> None:
                     copied += 1
                     copied_names.append(fname)
             grund = "Fremde Anhänge"
-            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(other_files) or "Keine", sender, subject, ", ".join(copied_names) or "Keine"])
+            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(other_files) or "Keine", sender, subject, ", ".join(copied_names) or "Keine"], tags=(get_row_tag(pruefen_idx),))
+            pruefen_idx += 1
             to_check += 1
 
         elif probezeit_files and other_files:
             grund = "Probezeit + Fremde Anhänge"
             zu_pruefen = probezeit_files + other_files
-            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(zu_pruefen) or "Keine", sender, subject, "Keine"])
+            app.tree_pruefen.insert("", "end", values=[grund, ", ".join(zu_pruefen) or "Keine", sender, subject, "Keine"], tags=(get_row_tag(pruefen_idx),))
+            pruefen_idx += 1
             to_check += 1
 
         else:
-            app.tree_skip.insert("", "end", values=[sender, subject, "Keine MD-Anhänge"])
+            app.tree_skip.insert("", "end", values=[sender, subject, "Keine MD-Anhänge"], tags=(get_row_tag(skip_idx),))
+            skip_idx += 1
             skipped += 1
 
         if hasattr(app, "inbox_status"):
