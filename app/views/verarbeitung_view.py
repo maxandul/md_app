@@ -25,17 +25,9 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
     bar = ttk.Frame(parent)
     bar.grid(row=0, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
 
-    # Jahrwahl mit Default bis April = Vorjahr
-    ttk.Label(bar, text="Durchlauf-Jahr:").pack(side="left", padx=(0,4))
-    app.proc_year_var = tk.IntVar(value=app._default_proc_year())
-    proc_year_box = ttk.Combobox(
-        bar,
-        textvariable=app.proc_year_var,
-        values=[date.today().year-1, date.today().year, date.today().year+1],
-        state="readonly",
-        width=8,
-    )
-    proc_year_box.pack(side="left", padx=(0, 12))
+    # Jahr-Variable vorbelegen mit globalem MD-Durchlaufjahr
+    # (Wird von Services verwendet, auch wenn nicht in UI sichtbar)
+    app.proc_year_var = tk.IntVar(value=app.md_durchlauf_jahr.get())
 
     # RPA-Zielverzeichnis (übersteuerbar)
     ttk.Label(bar, text="RPA-Ziel:").pack(side="left", padx=(0,4))
@@ -48,7 +40,14 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
     ttk.Entry(bar, textvariable=app.batch_size_var, width=6).pack(side="left", padx=(0,12))
 
     from app.controllers.verarbeitung_controller import run_full_processing
-    ttk.Button(bar, text="Verarbeitung starten", command=lambda: run_full_processing(app), style='Primary.TButton').pack(side="left")
+    from app.utils import confirm_md_action
+    
+    # Wrapper-Funktion mit Jahr-Bestätigung
+    def start_processing_with_confirm():
+        if confirm_md_action(app, "MD-Dokumente verarbeiten"):
+            run_full_processing(app)
+    
+    ttk.Button(bar, text="Verarbeitung starten", command=start_processing_with_confirm, style='Primary.TButton').pack(side="left")
 
     # Info-Button
     create_info_button(
@@ -67,7 +66,8 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             "   → Ergebnis: Status 'ok' oder 'manuell'/'prüfung_nötig'\n\n"
             "2) Export & Verschieben:\n"
             "   • Erstellt SAP-Massenupload (sap_massenupload/massenupload.xlsx)\n"
-            "   • Erstellt DataScience-Export (tracking/ds_export/docx_extract.csv)\n"
+            "   • Erstellt DataScience-Export (tracking/ds_export/docx_extract_{jahr}.csv)\n"
+            "     Das Jahr richtet sich nach dem ausgewählten Durchlauf-Jahr.\n"
             f"   • Verschiebt 'ok' → '{MDConstants.VERARBEITET_DIR}'\n"
             f"   • Verschiebt 'manuell' → '{MDConstants.UNVERARBEITET_DIR}/{MDConstants.MANUELL_DIR}'\n\n"
             "3) PDFs verarbeiten:\n"
@@ -77,7 +77,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             "   • Rückblick/Ausblick → RPA-Zielordner (für Roboter-Upload)\n"
             "   • Aktualisiert Tracking-System\n\n"
             "Einstellungen:\n"
-            "• Durchlauf-Jahr: Steuert RB/AB-Zuordnung (Standard: Aktuelles Jahr bis April, sonst Vorjahr)\n"
+            "• Durchlauf-Jahr: Wird oben im MD-Durchlauf-Feld festgelegt\n"
             "• Batchgröße: Begrenzt Anzahl zu verarbeitender Dateien pro Lauf\n"
             "• RPA-Zielordner: Wohin PDFs für SAP-Upload verschoben werden"
         ),

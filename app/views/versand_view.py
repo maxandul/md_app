@@ -55,29 +55,10 @@ def build_massenversand(app) -> None:
     toolbar = ttk.Frame(app.frame_massenversand)
     toolbar.grid(row=0, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
 
-    app.rb_year_var = tk.IntVar(value=date.today().year)
+    # Jahr-Variablen vorbelegen mit globalem MD-Durchlaufjahr
+    # (Werden von Services verwendet, auch wenn nicht in UI sichtbar)
+    app.rb_year_var = tk.IntVar(value=app.md_durchlauf_jahr.get())
     app.ab_year_var = tk.IntVar(value=app.rb_year_var.get() + 1)
-
-    ttk.Label(toolbar, text="Jahr:").pack(side="left", padx=(0, 4))
-    jahr_box = ttk.Combobox(
-        toolbar,
-        textvariable=app.rb_year_var,
-        values=[date.today().year-1, date.today().year, date.today().year+1],
-        state="readonly",
-        width=8
-    )
-    jahr_box.pack(side="left", padx=(0, 8))
-
-    app.year_label = ttk.Label(toolbar, text="")
-    app.year_label.pack(side="left", padx=(0, 20))
-
-    def _update_year_label(*_):
-        rb = app.rb_year_var.get()
-        app.ab_year_var.set(rb + 1)
-        app.year_label.config(text=f"Rückblick: {rb} / Ausblick: {rb+1}")
-
-    jahr_box.bind("<<ComboboxSelected>>", _update_year_label)
-    _update_year_label()
 
     ttk.Label(toolbar, text="Suche:").pack(side="left", padx=(0, 4))
     app.filter_var = tk.StringVar()
@@ -92,12 +73,14 @@ def build_massenversand(app) -> None:
         text=(
             "Massenversand für den jährlichen MD-Durchlauf\n\n"
             "Verwendung:\n"
-            "1) Rückblick-Jahr und Ausblick-Jahr wählen (z.B. 2025/2026).\n"
-            "2) Optional: Suchfeld nutzen um nach Namen, OE oder Personalnummer zu filtern.\n"
-            "3) Vorgesetzte auswählen (Mehrfachauswahl mit Strg/Shift möglich).\n"
-            "4) Vorschau: 'E-Mail-Vorschau' zeigt alle zu versendenden Mails.\n"
-            "5) Versand: 'Generieren & Versenden' erstellt Dokumente und verschickt sofort.\n"
-            "            'Generieren & Als Entwurf' erstellt Outlook-Entwürfe zur manuellen Prüfung.\n\n"
+            "1) Optional: Suchfeld nutzen um nach Namen, OE oder Personalnummer zu filtern.\n"
+            "2) Vorgesetzte auswählen (Mehrfachauswahl mit Strg/Shift möglich).\n"
+            "3) Vorschau: 'E-Mail-Vorschau' zeigt alle zu versendenden Mails.\n"
+            "4) Versand: 'Generieren & Versenden' erstellt Dokumente und verschickt sofort.\n"
+            "           'Generieren & Als Entwurf' erstellt Outlook-Entwürfe zur manuellen Prüfung.\n\n"
+            "Jahr:\n"
+            "Das verwendete Jahr wird oben im MD-Durchlauf-Feld festgelegt.\n"
+            "Bei Auswahl von 2025 werden Rückblick 2025 und Ausblick 2026 erstellt.\n\n"
             "Automatische Dokumenten-Logik pro Mitarbeiter/in:\n"
             "• Austritt Okt-Jan: nur Rückblick\n"
             "• Probezeit-Ende Okt-Jan: Rückblick Probezeit + Ausblick\n"
@@ -126,8 +109,19 @@ def build_massenversand(app) -> None:
     btn_frame = ttk.Frame(app.frame_massenversand)
     btn_frame.grid(row=3, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
     from app.controllers.versand_controller import send_managers, preview_managers
-    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_managers(app, mode="send"), style='Primary.TButton').pack(side="left")
-    ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_managers(app, mode="display")).pack(side="left", padx=(8,0))
+    from app.utils import confirm_md_action
+    
+    # Wrapper-Funktionen mit Jahr-Bestätigung
+    def send_with_confirm(mode):
+        if confirm_md_action(app, "Massenversand - Dokumente generieren & versenden"):
+            send_managers(app, mode=mode)
+    
+    def send_draft_with_confirm():
+        if confirm_md_action(app, "Massenversand - Dokumente generieren & als Entwurf speichern"):
+            send_managers(app, mode="display")
+    
+    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_with_confirm("send"), style='Primary.TButton').pack(side="left")
+    ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=send_draft_with_confirm).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_managers(app)).pack(side="left", padx=(8,0))
 
     prog_frame = ttk.Frame(app.frame_massenversand)
@@ -148,29 +142,10 @@ def build_einzelversand(app) -> None:
     toolbar = ttk.Frame(app.frame_einzelversand)
     toolbar.grid(row=0, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
 
-    app.rb_year_var_einzel = tk.IntVar(value=date.today().year)
+    # Jahr-Variablen vorbelegen mit globalem MD-Durchlaufjahr
+    # (Werden von Services verwendet, auch wenn nicht in UI sichtbar)
+    app.rb_year_var_einzel = tk.IntVar(value=app.md_durchlauf_jahr.get())
     app.ab_year_var_einzel = tk.IntVar(value=app.rb_year_var_einzel.get() + 1)
-
-    ttk.Label(toolbar, text="Jahr:").pack(side="left", padx=(0, 4))
-    jahr_box = ttk.Combobox(
-        toolbar,
-        textvariable=app.rb_year_var_einzel,
-        values=[date.today().year-1, date.today().year, date.today().year+1],
-        state="readonly",
-        width=8
-    )
-    jahr_box.pack(side="left", padx=(0, 8))
-
-    app.year_label_einzel = ttk.Label(toolbar, text="")
-    app.year_label_einzel.pack(side="left", padx=(0, 20))
-
-    def _update_year_label_einzel(*_):
-        rb = app.rb_year_var_einzel.get()
-        app.ab_year_var_einzel.set(rb + 1)
-        app.year_label_einzel.config(text=f"Rückblick: {rb} / Ausblick: {rb+1}")
-
-    jahr_box.bind("<<ComboboxSelected>>", _update_year_label_einzel)
-    _update_year_label_einzel()
 
     create_info_button(
         parent=toolbar,
@@ -178,17 +153,19 @@ def build_einzelversand(app) -> None:
         text=(
             "Einzelversand für unterjährige MD-Gespräche\n\n"
             "Verwendung:\n"
-            "1) Rückblick-Jahr und Ausblick-Jahr wählen.\n"
-            "2) EINEN Vorgesetzten aus der oberen Liste auswählen.\n"
-            "3) In der unteren Liste erscheinen die zugeordneten Mitarbeitenden.\n"
-            "4) Gewünschte Mitarbeitende auswählen (Mehrfachauswahl möglich).\n"
-            "5) Dokumenttypen aktivieren:\n"
+            "1) EINEN Vorgesetzten aus der oberen Liste auswählen.\n"
+            "2) In der unteren Liste erscheinen die zugeordneten Mitarbeitenden.\n"
+            "3) Gewünschte Mitarbeitende auswählen (Mehrfachauswahl möglich).\n"
+            "4) Dokumenttypen aktivieren:\n"
             "   [x] Rückblick: Vergangenes Jahr reflektieren\n"
             "   [x] Ausblick: Ziele für kommendes Jahr\n"
             "   [x] Rückblick Probezeit: Für MA mit Probezeit-Ende\n"
-            "6) Vorschau: 'E-Mail-Vorschau' zeigt die zu versendende Mail.\n"
-            "7) Versand: 'Generieren & Versenden' oder 'Als Entwurf speichern'.\n\n"
-            "Hinweis: Im Gegensatz zum Massenversand können Sie hier manuell\n"
+            "5) Vorschau: 'E-Mail-Vorschau' zeigt die zu versendende Mail.\n"
+            "6) Versand: 'Generieren & Versenden' oder 'Als Entwurf speichern'.\n\n"
+            "Jahr:\n"
+            "Das verwendete Jahr wird oben im MD-Durchlauf-Feld festgelegt.\n"
+            "Bei Auswahl von 2025 werden Rückblick 2025 und Ausblick 2026 erstellt.\n\n"
+            "Hinweis: Im Gegensatz zum Massenversand kannst du hier manuell\n"
             "steuern, welche Dokumenttypen erstellt werden.\n"
             "Rückblick Probezeit wird NICHT im Tracking erfasst."
         ),
@@ -228,8 +205,19 @@ def build_einzelversand(app) -> None:
     btn_frame = ttk.Frame(app.frame_einzelversand)
     btn_frame.grid(row=6, column=0, columnspan=6, sticky="ew", padx=8, pady=8)
     from app.controllers.versand_controller import send_selected_employees, preview_selected
-    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_selected_employees(app, mode="send"), style='Primary.TButton').pack(side="left")
-    ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=lambda: send_selected_employees(app, mode="display")).pack(side="left", padx=(8,0))
+    from app.utils import confirm_md_action
+    
+    # Wrapper-Funktionen mit Jahr-Bestätigung
+    def send_einzel_with_confirm(mode):
+        if confirm_md_action(app, "Einzelversand - Dokumente generieren & versenden"):
+            send_selected_employees(app, mode=mode)
+    
+    def send_einzel_draft_with_confirm():
+        if confirm_md_action(app, "Einzelversand - Dokumente generieren & als Entwurf speichern"):
+            send_selected_employees(app, mode="display")
+    
+    ttk.Button(btn_frame, text="Generieren & Versenden", command=lambda: send_einzel_with_confirm("send"), style='Primary.TButton').pack(side="left")
+    ttk.Button(btn_frame, text="Generieren & Als Entwurf speichern", command=send_einzel_draft_with_confirm).pack(side="left", padx=(8,0))
     ttk.Button(btn_frame, text="Vorschau generieren", command=lambda: preview_selected(app)).pack(side="left", padx=(8,0))
 
     prog_frame_e = ttk.Frame(app.frame_einzelversand)

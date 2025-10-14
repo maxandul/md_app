@@ -53,12 +53,16 @@ md_app/
 │   ├── massenupload.xlsx        # Automatisch generierter SAP-Upload
 │   └── archiv/                  # Archivierte Uploads
 ├── tracking/                    # Tracking-Daten & Logs
-│   ├── md_logging.csv           # Tracking-Datenbank (alle Dokumente)
+│   ├── md_logging_2024.csv      # Tracking MD-Durchlauf 2024
+│   ├── md_logging_2025.csv      # Tracking MD-Durchlauf 2025
 │   ├── app.log                  # Anwendungs-Log
-│   ├── versand/                 # Erstellte & versendete MD-Dokumente
+│   ├── versand_2024/            # Versendete Dokumente 2024
+│   │   └── VG_<PN>/             # Pro Vorgesetzten ein Ordner
+│   ├── versand_2025/            # Versendete Dokumente 2025
 │   │   └── VG_<PN>/             # Pro Vorgesetzten ein Ordner
 │   ├── ds_export/               # Data Science Exports
-│   │   └── docx_extract.csv     # DOCX-Daten für Analysen
+│   │   ├── docx_extract_2024.csv # DOCX-Daten 2024
+│   │   └── docx_extract_2025.csv # DOCX-Daten 2025
 │   └── org_structure/           # Organisationsstruktur-Daten
 ├── ruecklauf/                   # Eingehende Dokumente
 │   ├── unverarbeitet/           # Zielordner Mailanhänge 
@@ -96,6 +100,19 @@ md_app/
 
 ## 📖 Verwendung
 
+### 🗓️ MD-Durchlaufjahr auswählen
+**Oberhalb aller Tabs** findest du die Jahr-Auswahl für den aktiven MD-Durchlauf:
+
+- **📅 MD-Durchlauf**: Wähle das Jahr des Rückblicks (z.B. 2025)
+- Automatisch wird angezeigt: "Rückblick auf 2025 • Ausblick auf 2026"
+- Alle Tabs verwenden automatisch dieses Jahr
+- Tracking, Export und Versand werden jahr-spezifisch gespeichert
+
+**Wann welches Jahr wählen?**
+- Oktober-Dezember 2025 → Jahr 2025 (MD-Start)
+- Januar-April 2026 → Jahr 2025 (Nachläufer-Phase)
+- Mai-September 2026 → Jahr 2026 (Vorbereitung neuer Durchlauf)
+
 ### 1️⃣ SAP Stammdaten prüfen
 **Zweck**: Validierung der SAP-Stammdaten vor dem MD-Versand
 
@@ -110,7 +127,6 @@ md_app/
 ### 2️⃣ MD-Versand
 
 #### Massenversand (Jährlicher Durchlauf)
-- Jahr auswählen (Rückblick/Ausblick)
 - Vorgesetzte auswählen (Mehrfachauswahl möglich)
 - **Vorschau**: Zeigt alle zu versendenden E-Mails
 - **Versand-Modi**:
@@ -123,9 +139,9 @@ md_app/
   - Probezeit-Ende Jun-Sep: Nur Ausblick
 - Pro Vorgesetzten wird eine **Feedback-Vorlage** erstellt
 - Alle Dokumente werden im **Tracking-System erfasst** (außer Probezeit-Rückblick)
+- **Sicherheitsabfrage**: Vor dem Versand erscheint ein Dialog mit dem aktiven MD-Durchlaufjahr zur Bestätigung
 
 #### Einzelversand (Unterjährig)
-- Jahr auswählen
 - **Einen** Vorgesetzten auswählen
 - Gewünschte Mitarbeitende auswählen
 - **Manuelle Dokumenttyp-Auswahl**:
@@ -134,6 +150,7 @@ md_app/
   - ☑ Rückblick Probezeit
 - **Kein** Feedback-Dokument im Einzelversand
 - **Vorschau** und Versand-Modi wie beim Massenversand
+- **Sicherheitsabfrage**: Vor dem Versand erscheint ein Dialog zur Bestätigung
 
 #### VG-MA-Verhältnis anlegen
 - Neue Vorgesetzten-Mitarbeiter-Beziehung erstellen
@@ -173,7 +190,7 @@ md_app/
    
 2. **Export & Verschieben**:
    - Erstellt **SAP-Massenupload** (`sap_massenupload/massenupload.xlsx`)
-   - Erstellt **DataScience-Export** (`tracking/ds_export/docx_extract.csv`)
+   - Erstellt **DataScience-Export** (`tracking/ds_export/docx_extract_{jahr}.csv`)
    - DOCX "ok" → `ruecklauf/verarbeitet`
    - DOCX "manuell" → `ruecklauf/unverarbeitet/manuell`
    
@@ -187,15 +204,19 @@ md_app/
      - Fehler → `ruecklauf/unverarbeitet/manuell`
 
 **Einstellungen**:
-- Durchlauf-Jahr (Standard: Aktuelles Jahr bis April, danach Vorjahr)
 - Batchgröße (begrenzt Anzahl Dateien pro Lauf)
 - RPA-Zielordner (wohin PDFs für SAP-Upload verschoben werden)
+
+**Hinweis**: Das Durchlauf-Jahr wird oben im globalen MD-Durchlauf-Feld festgelegt.
+
+**Sicherheitsabfrage**: Vor dem Start der Verarbeitung erscheint ein Dialog mit dem aktiven MD-Durchlaufjahr zur Bestätigung.
 
 ### 5️⃣ MD-Dashboard
 **Zweck**: Status-Übersicht & Erinnerungen
 
 **Funktionen**:
-- **Aktualisieren**: Lädt Tracking-Daten aus `tracking/md_logging.csv`
+- **Aktualisieren**: Lädt Tracking-Daten aus `tracking/md_logging_{jahr}.csv`
+  (Jahr entspricht dem oben ausgewählten MD-Durchlauf)
 - **Filter**:
   - Nach Namen (Vorgesetzten/Mitarbeiter)
   - Nach Status (ausstehend/erhalten/prüfung_nötig/erübrigt)
@@ -235,7 +256,7 @@ paths:
     logs_dir: "../ruecklauf/logs"
   tracking_dir: "../tracking"
   sap_massenupload: "../app/sap_massenupload/massenupload.xlsx"
-  ds_export: "../app/tracking/ds_export/docx_extract.csv"
+  # DS-Export wird automatisch jahr-spezifisch erstellt (docx_extract_{jahr}.csv)
   rpa_input_dir: "K:/VD-GS-PUO-Personal/100 Roboter/Input"
   output_dir: "K:/VD-GS-PUO-Personal/100 Roboter/Input"
 
@@ -279,7 +300,13 @@ Die Anwendung wählt automatisch die richtigen Dokumenttypen basierend auf Mitar
 
 ## 📊 Tracking-System
 
-Das System trackt vollständig alle MD-Dokumente in `tracking/md_logging.csv`.
+Das System trackt vollständig alle MD-Dokumente in jahr-spezifischen Dateien (`tracking/md_logging_{jahr}.csv`).
+
+**Jahr-basierte Dateistruktur**:
+- Jeder MD-Durchlauf wird separat gespeichert
+- Beispiel: `md_logging_2025.csv` enthält alle Daten für den MD-Durchlauf 2025
+- Ermöglicht saubere Trennung zwischen Jahren
+- Alte Durchläufe können archiviert werden
 
 ### Erfasste Daten pro Eintrag:
 - `log_id`: Eindeutige ID
@@ -366,8 +393,9 @@ Das System trackt vollständig alle MD-Dokumente in `tracking/md_logging.csv`.
 - **Prüfung**: Als Administrator ausführen oder Berechtigungen anpassen
 
 #### 6. "Tracking zeigt keine Daten"
-- **Lösung**: `tracking/md_logging.csv` existiert erst nach erstem Versand
-- **Prüfung**: Mindestens einmal Dokumente versenden
+- **Lösung**: `tracking/md_logging_{jahr}.csv` existiert erst nach erstem Versand für dieses Jahr
+- **Prüfung**: Mindestens einmal Dokumente für das ausgewählte Jahr versenden
+- **Hinweis**: Stelle sicher, dass das richtige Jahr oben ausgewählt ist
 
 #### 7. "PDF wird nicht erkannt" / "Dokumenttyp: Unbekannt"
 - **Ursache**: Dateiname enthält keine MD-Keywords

@@ -177,7 +177,9 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
     """
     results: list[Dict[str, Any]] = []
     sap_idx = build_sap_index(sap_df)
-    tracking = SimpleTrackingSystem()
+    
+    # Tracking mit Durchlaufjahr initialisieren
+    tracking = SimpleTrackingSystem(jahr=durchlauf_jahr)
 
     docx_files = sorted(input_dir.glob(f"*{MDConstants.ALLOWED_EXTENSIONS[0]}"))
     if max_files is not None:
@@ -581,7 +583,9 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
     results = []
     in_dir = Path(in_dir)
     out_root = Path(out_root)
-    tracking = SimpleTrackingSystem()
+    
+    # Tracking mit Durchlaufjahr initialisieren
+    tracking = SimpleTrackingSystem(jahr=durchlauf_jahr)
 
     def _ensure_pn_suffix(filename: str, pn: str) -> str:
         """Hängt _<pn> vor die .pdf-Endung, falls noch nicht vorhanden.

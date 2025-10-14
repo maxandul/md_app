@@ -43,7 +43,8 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
         text=(
             "Übersicht aller versendeten Dokumente und deren Rücklauf-Status\n\n"
             "Funktionen:\n\n"
-            "• Aktualisieren: Lädt aktuelle Tracking-Daten aus 'tracking/md_logging.csv'.\n\n"
+            "• Aktualisieren: Lädt aktuelle Tracking-Daten aus 'tracking/md_logging_{jahr}.csv'.\n"
+            "  Das Jahr richtet sich nach dem oben ausgewählten MD-Durchlaufjahr.\n\n"
             "• Filter:\n"
             "  - Name: Suche nach Vorgesetzten- oder Mitarbeiter-Namen\n"
             "  - Status: Zeige nur Einträge mit bestimmtem Status\n"

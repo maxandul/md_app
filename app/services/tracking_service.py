@@ -12,12 +12,48 @@ CFG = load_config()
 
 
 class SimpleTrackingSystem:
-    def __init__(self):
+    def __init__(self, jahr: int = None):
+        """Initialisiert das Tracking-System für ein spezifisches MD-Durchlaufjahr.
+        
+        Args:
+            jahr: MD-Durchlaufjahr (Rückblick-Jahr). Wenn None, wird es intelligent ermittelt:
+                  - Oktober-Dezember: aktuelles Jahr
+                  - Januar-April: Vorjahr (Nachläufer-Phase)
+                  - Mai-September: aktuelles Jahr
+        """
         tracking_dir = (CFG.get("paths", {}) or {}).get("tracking_dir", "../tracking")
         # Korrektur: Von services/ aus 2 Ebenen hoch zur Root, dann tracking_dir relativ auflösen
         base_dir = Path(__file__).parent.parent.parent  # Von services/ -> app/ -> md_app/
-        self.log_path = (base_dir / tracking_dir.lstrip("../")).resolve() / "md_logging.csv"
+        tracking_path = (base_dir / tracking_dir.lstrip("../")).resolve()
+        
+        # Jahr ermitteln wenn nicht angegeben
+        if jahr is None:
+            jahr = self._detect_jahr()
+        
+        self.jahr = jahr
+        
+        # Jahr-spezifische Tracking-Datei
+        self.log_path = tracking_path / f"md_logging_{jahr}.csv"
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    def _detect_jahr(self) -> int:
+        """Ermittelt das aktive MD-Durchlaufjahr basierend auf dem aktuellen Datum.
+        
+        Logik:
+        - Oktober-Dezember: aktuelles Jahr (MD-Start)
+        - Januar-April: Vorjahr (Nachläufer-Phase)
+        - Mai-September: aktuelles Jahr (Vorbereitung/unterjährig)
+        """
+        heute = datetime.now()
+        monat = heute.month
+        jahr = heute.year
+        
+        if 10 <= monat <= 12:  # Okt-Dez: Aktuelles Jahr
+            return jahr
+        elif 1 <= monat <= 4:  # Jan-Apr: Vorjahr (Nachläufer)
+            return jahr - 1
+        else:  # Mai-Sep: Aktuelles Jahr
+            return jahr
 
     # ... Implementation identisch zur bisherigen simple_tracking.SimpleTrackingSystem ...
     # Aus Platzgründen unverändert übernommen

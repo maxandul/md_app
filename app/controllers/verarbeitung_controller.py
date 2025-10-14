@@ -79,10 +79,15 @@ def run_full_processing(app) -> None:
             out_xlsx=sap_massenupload_path
         )
         
-        # Zielpfad DS-Export: config.paths.ds_export, sonst Default in tracking/ds_export/docx_extract.csv
+        # Zielpfad DS-Export: Jahr-spezifisch in tracking/ds_export/docx_extract_{jahr}.csv
         ds_export_cfg = (CFG.get("paths", {}) or {}).get("ds_export")
         # Korrektur: Von controllers/ aus 3 Ebenen hoch zur Root (md_app/)
-        ds_export_path = Path(ds_export_cfg) if ds_export_cfg else (Path(__file__).parent.parent.parent / "tracking" / "ds_export" / "docx_extract.csv")
+        if ds_export_cfg:
+            ds_export_path = Path(ds_export_cfg)
+        else:
+            # Default: tracking/ds_export/docx_extract_{jahr}.csv
+            ds_export_path = Path(__file__).parent.parent.parent / "tracking" / "ds_export" / f"docx_extract_{durchlauf_jahr}.csv"
+        
         export_ds_csv(
             results=all_results,
             out_csv=ds_export_path,

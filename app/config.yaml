@@ -13,8 +13,6 @@ paths:
     manuell: "../ruecklauf/unverarbeitet/manuell"
     feedbacks: "../ruecklauf/feedbacks"
   tracking_dir: "../tracking"
-  versand_log: "../tracking/versand_log.csv"
-  ruecklauf_status: "../tracking/ruecklauf_status.csv"
   sap_massenupload_dir: "../sap_massenupload"
   sap_massenupload_archiv: "../sap_massenupload/archiv"
   logs_dir: "../ruecklauf/logs"

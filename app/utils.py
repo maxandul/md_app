@@ -149,3 +149,29 @@ def create_info_button(parent: tk.Widget, text: str, title: str = "Hinweis", sid
     btn = ttk.Button(parent, text="ℹ Info", command=_show)
     btn.pack(side=side)
     return btn
+
+
+def confirm_md_action(app, action_name: str) -> bool:
+    """Zeigt einen Bestätigungsdialog mit dem aktiven MD-Durchlaufjahr an.
+    
+    Args:
+        app: Hauptanwendung (benötigt app.md_durchlauf_jahr)
+        action_name: Name der Aktion (z.B. "Versand", "Verarbeitung")
+        
+    Returns:
+        True wenn Nutzer bestätigt, False sonst
+    """
+    jahr = app.md_durchlauf_jahr.get()
+    
+    result = messagebox.askyesno(
+        "Bestätigung erforderlich",
+        f"Du bist dabei, folgende Aktion durchzuführen:\n\n"
+        f"➤ {action_name}\n\n"
+        f"Aktiver MD-Durchlauf:\n"
+        f"• Rückblick auf {jahr}\n"
+        f"• Ausblick auf {jahr + 1}\n\n"
+        f"Möchtest du fortfahren?",
+        icon='question'
+    )
+    
+    return result

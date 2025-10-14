@@ -166,12 +166,18 @@ class App(tk.Tk):
         # Jahr-Variable ZENTRAL anlegen (wichtig, sonst None im Callback)
         self.jahr_var = tk.IntVar(value=date.today().year)
         
-        # Tracking-System initialisieren
-        self.tracking = SimpleTrackingSystem()
+        # GLOBALES MD-DURCHLAUFJAHR (für Tracking, Export, alle Tabs)
+        self.md_durchlauf_jahr = tk.IntVar(value=self._detect_md_jahr())
+        
+        # Tracking-System mit MD-Durchlaufjahr initialisieren
+        self.tracking = SimpleTrackingSystem(jahr=self.md_durchlauf_jahr.get())
+        
+        # Jahr-Auswahl UI (oberhalb der Tabs)
+        self._build_jahr_selector()
 
         # Notebook mit Tabs für die verschiedenen Funktionsbereiche
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True)
+        self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         # Frame-Container für jeden Tab
         self.frame_stammdaten = ttk.Frame(self.notebook)
@@ -266,6 +272,141 @@ class App(tk.Tk):
             return current_year - 1  # Vorjahr
         else:
             return current_year  # Aktuelles Jahr
+    
+    def _detect_md_jahr(self) -> int:
+        """Ermittelt das aktive MD-Durchlaufjahr basierend auf dem aktuellen Datum.
+        
+        Logik:
+        - Oktober-Dezember: aktuelles Jahr (MD-Start)
+        - Januar-April: Vorjahr (Nachläufer-Phase)
+        - Mai-September: aktuelles Jahr (Vorbereitung/unterjährig)
+        """
+        heute = date.today()
+        monat = heute.month
+        jahr = heute.year
+        
+        if 10 <= monat <= 12:  # Okt-Dez: Aktuelles Jahr
+            return jahr
+        elif 1 <= monat <= 4:  # Jan-Apr: Vorjahr (Nachläufer)
+            return jahr - 1
+        else:  # Mai-Sep: Aktuelles Jahr
+            return jahr
+    
+    def _build_jahr_selector(self) -> None:
+        """Erstellt die Jahr-Auswahl oberhalb der Tabs."""
+        jahr_frame = ttk.Frame(self)
+        jahr_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Label
+        ttk.Label(
+            jahr_frame,
+            text="📅 MD-Durchlauf:",
+            font=("Segoe UI", 10, "bold")
+        ).pack(side="left", padx=(0, 8))
+        
+        # Jahr-Auswahl Dropdown
+        jahr_combo = ttk.Combobox(
+            jahr_frame,
+            textvariable=self.md_durchlauf_jahr,
+            values=[2023, 2024, 2025, 2026, 2027, 2028],
+            state="readonly",
+            width=8,
+            font=("Segoe UI", 10)
+        )
+        jahr_combo.pack(side="left", padx=(0, 16))
+        jahr_combo.bind("<<ComboboxSelected>>", self._on_md_jahr_change)
+        
+        # Erklärung (dynamisch)
+        self.jahr_erklaerung = ttk.Label(
+            jahr_frame,
+            text="",
+            foreground="#555",
+            font=("Segoe UI", 9)
+        )
+        self.jahr_erklaerung.pack(side="left", padx=(0, 16))
+        
+        # Dateihinweis (dynamisch)
+        self.jahr_datei = ttk.Label(
+            jahr_frame,
+            text="",
+            foreground="#888",
+            font=("Segoe UI", 8, "italic")
+        )
+        self.jahr_datei.pack(side="left")
+        
+        # Info-Button
+        create_info_button(
+            parent=jahr_frame,
+            title="Info • MD-Durchlaufjahr",
+            text=(
+                "Das Durchlaufjahr bestimmt welcher MD-Prozess bearbeitet wird.\n\n"
+                "Bei Auswahl von 2025:\n"
+                "• Rückblick bezieht sich auf das Jahr 2025\n"
+                "• Ausblick bezieht sich auf das Jahr 2026\n"
+                "• Dokumente werden benannt: Rückblick_2025_..., Ausblick_2026_...\n\n"
+                "Tracking und Exporte:\n"
+                "• Tracking-Daten: tracking/md_logging_2025.csv\n"
+                "• DS-Export: tracking/ds_export/docx_extract_2025.csv\n"
+                "• Versendete Dokumente: tracking/versand_2025/VG_<PN>/...\n\n"
+                "Zeitraum:\n"
+                "Der MD-Durchlauf 2025 läuft typischerweise von Oktober 2025 bis April 2026.\n"
+                "Auch unterjährige Versände (z.B. bei Neueintritten) werden dem jeweiligen Jahr zugeordnet.\n\n"
+                "Jahr wechseln:\n"
+                "Du kannst jederzeit zwischen Jahren wechseln. Die Daten bleiben getrennt gespeichert."
+            ),
+            side="right"
+        )
+        
+        # Initial befüllen
+        self._update_jahr_labels()
+    
+    def _on_md_jahr_change(self, event=None) -> None:
+        """Wird aufgerufen wenn das MD-Durchlaufjahr geändert wird."""
+        neues_jahr = self.md_durchlauf_jahr.get()
+        
+        # Tracking-System neu initialisieren mit neuem Jahr
+        self.tracking = SimpleTrackingSystem(jahr=neues_jahr)
+        
+        # Jahr-Variablen in den Tabs synchronisieren
+        if hasattr(self, 'rb_year_var'):
+            self.rb_year_var.set(neues_jahr)
+            self.ab_year_var.set(neues_jahr + 1)
+        
+        if hasattr(self, 'rb_year_var_einzel'):
+            self.rb_year_var_einzel.set(neues_jahr)
+            self.ab_year_var_einzel.set(neues_jahr + 1)
+        
+        if hasattr(self, 'proc_year_var'):
+            self.proc_year_var.set(neues_jahr)
+        
+        # Dashboard neu laden (falls bereits aufgebaut)
+        if hasattr(self, 'tree_dashboard'):
+            try:
+                from controllers.dashboard_controller import load_dashboard
+                load_dashboard(self)
+            except Exception:
+                try:
+                    from .controllers.dashboard_controller import load_dashboard
+                    load_dashboard(self)
+                except Exception:
+                    pass  # Dashboard noch nicht aufgebaut
+        
+        # Labels aktualisieren
+        self._update_jahr_labels()
+    
+    def _update_jahr_labels(self) -> None:
+        """Aktualisiert die Erklärungstexte zum MD-Jahr."""
+        jahr = self.md_durchlauf_jahr.get()
+        
+        # Haupterklärung
+        self.jahr_erklaerung.config(
+            text=f"Rückblick auf {jahr} • Ausblick auf {jahr + 1}"
+        )
+        
+        # Dateihinweis
+        self.jahr_datei.config(
+            text=f"(Tracking: md_logging_{jahr}.csv, Export: docx_extract_{jahr}.csv)"
+        )
 
 
 if __name__ == "__main__":
