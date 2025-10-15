@@ -16,7 +16,7 @@ from app.theme import configure_treeview_for_alternating_rows
 
 
 def make_tree(parent: ttk.Frame, cols: list[str], bind_sort, height: int = None) -> ttk.Treeview:
-    """Erstellt einen Treeview mit Scrollbar und optionaler Sort-Bindung.
+    """Erstellt einen Treeview mit vertikalen und horizontalen Scrollbars und optionaler Sort-Bindung.
 
     Args:
         parent: Container-Frame
@@ -35,16 +35,23 @@ def make_tree(parent: ttk.Frame, cols: list[str], bind_sort, height: int = None)
     if height is not None:
         tree_kwargs["height"] = height
     
-    tree = ttk.Treeview(frame, **tree_kwargs)
+    # Scrollbars zuerst erstellen
+    scrollbar_y = ttk.Scrollbar(frame, orient="vertical")
+    scrollbar_y.pack(side="right", fill="y")
+    
+    scrollbar_x = ttk.Scrollbar(frame, orient="horizontal")
+    scrollbar_x.pack(side="bottom", fill="x")
+    
+    # Treeview mit Scrollbars verbinden
+    tree = ttk.Treeview(frame, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set, **tree_kwargs)
     for c in cols:
         tree.heading(c, text=c)
         tree.column(c, width=180 if c != "Betreff" else 300, anchor="w")
     configure_treeview_for_alternating_rows(tree)
     tree.pack(side="left", fill="both", expand=True)
 
-    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
-    tree.configure(yscroll=scrollbar.set)
-    scrollbar.pack(side="right", fill="y")
+    scrollbar_y.config(command=tree.yview)
+    scrollbar_x.config(command=tree.xview)
 
     # Standard: alle Spalten sortierbar, Logik kommt von der App
     if bind_sort:

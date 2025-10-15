@@ -23,15 +23,12 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     toolbar = ttk.Frame(parent)
     toolbar.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
-    from app.controllers.dashboard_controller import refresh_dashboard
-    ttk.Button(toolbar, text="Aktualisieren", command=lambda: refresh_dashboard(app), style='Primary.TButton').pack(side="left", padx=(0, 8))
-    from app.controllers.dashboard_controller import manual_adjustment
-    ttk.Button(toolbar, text="Manuelle Anpassung", command=lambda: manual_adjustment(app)).pack(side="left", padx=(0, 8))
-    from app.controllers.dashboard_controller import export_dashboard
-    ttk.Button(toolbar, text="Export CSV", command=lambda: export_dashboard(app)).pack(side="left", padx=(0, 8))
-    
-    # Erinnerungs-Buttons
+    from app.controllers.dashboard_controller import refresh_dashboard, manual_adjustment
     from app.controllers.erinnerung_controller import send_reminders, save_reminders_as_draft, preview_reminders
+    
+    # Buttons in gewünschter Reihenfolge
+    ttk.Button(toolbar, text="Aktualisieren", command=lambda: refresh_dashboard(app), style='Primary.TButton').pack(side="left", padx=(0, 8))
+    ttk.Button(toolbar, text="Manuelle Anpassung", command=lambda: manual_adjustment(app), style='Primary.TButton').pack(side="left", padx=(0, 8))
     ttk.Button(toolbar, text="Erinnerung versenden", command=lambda: send_reminders(app), style='Primary.TButton').pack(side="left", padx=(0, 8))
     ttk.Button(toolbar, text="Erinnerung als Entwurf speichern", command=lambda: save_reminders_as_draft(app)).pack(side="left", padx=(0, 8))
     ttk.Button(toolbar, text="Vorschau generieren", command=lambda: preview_reminders(app)).pack(side="left")
@@ -57,9 +54,6 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
             "• Manuelle Anpassung:\n"
             "  Einzelnen Eintrag auswählen und Status/Grund ändern.\n"
             "  Nützlich bei Sonderfällen oder Korrekturen.\n\n"
-            "• Export CSV:\n"
-            "  Speichert die aktuell gefilterte Ansicht als CSV-Datei\n"
-            "  nach 'export/ds_export_<timestamp>.csv'.\n\n"
             "• Erinnerungen senden:\n"
             "  1) Eine oder mehrere Zeilen auswählen (mit Strg/Shift)\n"
             "  2) 'E-Mail-Vorschau' zeigt geplante Erinnerungsmails\n"
@@ -105,10 +99,8 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
 
     ttk.Label(filter_frame, text="OE:").pack(side="left", padx=(0, 4))
     app.dash_oe_search = ttk.Entry(filter_frame, width=20)
-    app.dash_oe_search.pack(side="left", padx=(0, 16))
+    app.dash_oe_search.pack(side="left")
     app.dash_oe_search.bind("<KeyRelease>", lambda e: refresh_dashboard(app))
-
-    ttk.Button(filter_frame, text="Anwenden", command=lambda: refresh_dashboard(app)).pack(side="left")
 
     # Status-Überschrift
     ttk.Label(parent, text="Status-Übersicht:", style='SectionHeading.TLabel').grid(row=2, column=0, sticky="w", padx=8, pady=(0, 4))
@@ -177,12 +169,16 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     for c in cols:
         app.tree_dashboard.heading(c, command=lambda _c=c: _sort_tree_by_dashboard(app.tree_dashboard, _c, False))
 
-    app.tree_dashboard.grid(row=3, column=0, sticky="nsew", padx=8, pady=(0, 8))
+    app.tree_dashboard.grid(row=3, column=0, sticky="nsew", padx=8, pady=(0, 0))
 
-    # Scrollbar
-    scrollbar_dash = ttk.Scrollbar(parent, orient="vertical", command=app.tree_dashboard.yview)
-    scrollbar_dash.grid(row=3, column=1, sticky="ns")
-    app.tree_dashboard.configure(yscrollcommand=scrollbar_dash.set)
+    # Scrollbars
+    scrollbar_dash_y = ttk.Scrollbar(parent, orient="vertical", command=app.tree_dashboard.yview)
+    scrollbar_dash_y.grid(row=3, column=1, sticky="ns")
+    app.tree_dashboard.configure(yscrollcommand=scrollbar_dash_y.set)
+    
+    scrollbar_dash_x = ttk.Scrollbar(parent, orient="horizontal", command=app.tree_dashboard.xview)
+    scrollbar_dash_x.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 8))
+    app.tree_dashboard.configure(xscrollcommand=scrollbar_dash_x.set)
 
     # Initial load
     from app.controllers.dashboard_controller import refresh_dashboard

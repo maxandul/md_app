@@ -225,6 +225,13 @@ def refresh_mgr_table(app) -> None:
             mgr.get("OE Kurzb.", ""),
             subs_count,
         ], tags=(get_row_tag(i),))
+    
+    # Automatische Spaltenbreiten-Anpassung
+    try:
+        from app.views.ui_utils import autosize_tree_columns
+        autosize_tree_columns(app.tree)
+    except Exception:
+        pass
 
 
 def refresh_mgr_table_einzel(app) -> None:
@@ -233,7 +240,8 @@ def refresh_mgr_table_einzel(app) -> None:
     for item in app.tree_einzel.get_children():
         app.tree_einzel.delete(item)
 
-    filter_text = app.filter_var.get().lower() if hasattr(app, 'filter_var') else ""
+    # Verwende filter_var_einzel für Einzelversand-Tab
+    filter_text = app.filter_var_einzel.get().lower() if hasattr(app, 'filter_var_einzel') else ""
 
     # Gefilterte Items sammeln
     filtered_items = []
@@ -242,8 +250,9 @@ def refresh_mgr_table_einzel(app) -> None:
         if mgr is None:
             continue
 
+        # Filter prüfen (analog zum Massenversand)
         if filter_text:
-            mgr_text = f"{mgr.get('Nachname','')} {mgr.get('Rufname','')} {mgr.get('OE Kurzb.','')}".lower()
+            mgr_text = f"{mgr.get('Nachname','')} {mgr.get('Rufname','')} {mgr.get('OE Kurzb.','')} {vg_pn}".lower()
             if filter_text not in mgr_text:
                 continue
 
@@ -262,6 +271,13 @@ def refresh_mgr_table_einzel(app) -> None:
             mgr.get("OE Kurzb.", ""),
             subs_count,
         ], tags=(get_row_tag(i),))
+    
+    # Automatische Spaltenbreiten-Anpassung
+    try:
+        from app.views.ui_utils import autosize_tree_columns
+        autosize_tree_columns(app.tree_einzel)
+    except Exception:
+        pass
 
 
 def refresh_vg_list(app) -> None:
@@ -293,6 +309,13 @@ def refresh_vg_list(app) -> None:
             mgr.get("Rufname", ""),
             mgr.get("OE Kurzb.", ""),
         ], tags=(get_row_tag(i),))
+    
+    # Automatische Spaltenbreiten-Anpassung
+    try:
+        from app.views.ui_utils import autosize_tree_columns
+        autosize_tree_columns(app.vg_tree)
+    except Exception:
+        pass
 
 
 def refresh_ma_list(app) -> None:
@@ -324,6 +347,13 @@ def refresh_ma_list(app) -> None:
             str(r.get("Rufname","")),
             str(r.get("OE Kurzb.","")),
         ], tags=(get_row_tag(i),))
+    
+    # Automatische Spaltenbreiten-Anpassung
+    try:
+        from app.views.ui_utils import autosize_tree_columns
+        autosize_tree_columns(app.ma_tree)
+    except Exception:
+        pass
 
 
 def update_selection_status(app) -> None:

@@ -37,7 +37,7 @@ class MDConstants:
 
     # GUI
     TREE_MIN_WIDTH: int = 80
-    TREE_MAX_WIDTH: int = 420
+    TREE_MAX_WIDTH: int = 800
     TREE_PADDING: int = 24
 
     # Verarbeitung

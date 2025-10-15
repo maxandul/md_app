@@ -68,7 +68,15 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
         app.tree_checks.heading(c, text=c)
         app.tree_checks.column(c, width=360 if c == "Prüfpunkte" else 220, anchor="w")
     configure_treeview_for_alternating_rows(app.tree_checks)
-    app.tree_checks.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
+    app.tree_checks.grid(row=3, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,0))
+    
+    scrollbar_y_checks = ttk.Scrollbar(parent, orient="vertical", command=app.tree_checks.yview)
+    scrollbar_y_checks.grid(row=3, column=6, sticky="ns")
+    app.tree_checks.configure(yscrollcommand=scrollbar_y_checks.set)
+    
+    scrollbar_x_checks = ttk.Scrollbar(parent, orient="horizontal", command=app.tree_checks.xview)
+    scrollbar_x_checks.grid(row=4, column=0, columnspan=6, sticky="ew", padx=8, pady=(0,8))
+    app.tree_checks.configure(xscrollcommand=scrollbar_x_checks.set)
 
     ttk.Label(
         parent,
@@ -77,7 +85,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
             "Diese sind zu prüfen, können aber berechtigt sein (s. Infobox)."
         ),
         style='InfoText.TLabel',
-    ).grid(row=4, column=0, columnspan=6, sticky="w", padx=8, pady=(8,4))
+    ).grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(8,4))
 
     cols_findings = ["Kategorie", "PersNr", "Nachname", "Vorname", "Details"]
     app.tree_findings = ttk.Treeview(parent, columns=cols_findings, show="headings", height=12)
@@ -85,7 +93,15 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
         app.tree_findings.heading(c, text=c)
         app.tree_findings.column(c, width=160 if c not in ("Details",) else 320, anchor="w")
     configure_treeview_for_alternating_rows(app.tree_findings)
-    app.tree_findings.grid(row=5, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,8))
+    app.tree_findings.grid(row=6, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,0))
+    
+    scrollbar_y_findings = ttk.Scrollbar(parent, orient="vertical", command=app.tree_findings.yview)
+    scrollbar_y_findings.grid(row=6, column=6, sticky="ns")
+    app.tree_findings.configure(yscrollcommand=scrollbar_y_findings.set)
+    
+    scrollbar_x_findings = ttk.Scrollbar(parent, orient="horizontal", command=app.tree_findings.xview)
+    scrollbar_x_findings.grid(row=7, column=0, columnspan=6, sticky="ew", padx=8, pady=(0,8))
+    app.tree_findings.configure(xscrollcommand=scrollbar_x_findings.set)
 
     # Sortierbare Findings-Tabelle
     def _sort_tree_by(tree: ttk.Treeview, col: str, descending: bool) -> None:
@@ -103,7 +119,7 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
     for c in cols_findings:
         app.tree_findings.heading(c, command=lambda _c=c: _sort_tree_by(app.tree_findings, _c, False))
 
-    parent.grid_rowconfigure(5, weight=1)
+    parent.grid_rowconfigure(6, weight=1)
     parent.grid_columnconfigure(5, weight=1)
 
 

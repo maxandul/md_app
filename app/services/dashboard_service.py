@@ -97,6 +97,14 @@ def refresh_dashboard(app) -> None:
                 ),
                 tags=(tag,) if tag else (),
             )
+        
+        # Automatische Spaltenbreiten-Anpassung
+        try:
+            from app.views.ui_utils import autosize_tree_columns
+            autosize_tree_columns(app.tree_dashboard)
+        except Exception:
+            pass
+            
     except Exception as e:
         messagebox.showerror(MDConstants.MSG_ERROR, f"Fehler beim Laden der Dashboard-Daten: {e}")
 

@@ -118,12 +118,20 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
         else:
             app.tree_proc.column(c, width=180, anchor="w")
     configure_treeview_for_alternating_rows(app.tree_proc)
-    app.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=8)
+    app.tree_proc.grid(row=4, column=0, columnspan=6, sticky="nsew", padx=8, pady=(8,0))
     app._bind_treeview_sort(app.tree_proc, numeric_like={"PN"})
+    
+    scrollbar_y_proc = ttk.Scrollbar(parent, orient="vertical", command=app.tree_proc.yview)
+    scrollbar_y_proc.grid(row=4, column=6, sticky="ns", pady=(8,0))
+    app.tree_proc.configure(yscrollcommand=scrollbar_y_proc.set)
+    
+    scrollbar_x_proc = ttk.Scrollbar(parent, orient="horizontal", command=app.tree_proc.xview)
+    scrollbar_x_proc.grid(row=5, column=0, columnspan=6, sticky="ew", padx=8, pady=(0,8))
+    app.tree_proc.configure(xscrollcommand=scrollbar_x_proc.set)
 
     # Überschrift und Erklärung für PDF-Verarbeitung
     ttk.Label(parent, text="PDF-Dokumente:", style='SectionHeading.TLabel').grid(
-        row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4)
+        row=6, column=0, columnspan=6, sticky="w", padx=8, pady=(8, 4)
     )
 
     pdf_info = ttk.Label(
@@ -136,7 +144,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
         style='InfoText.TLabel',
         wraplength=800,
     )
-    pdf_info.grid(row=6, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
+    pdf_info.grid(row=7, column=0, columnspan=6, sticky="w", padx=8, pady=(0, 8))
 
     # Ergebnis-Tabelle PDFs (gleiche Spalten wie DOCX für Konsistenz)
     pdf_cols = ["Datei", "Typ", "PN", "Name", "Status", "Grund", "Ziel"]
@@ -150,12 +158,20 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
         else:
             app.tree_pdfs.column(c, width=140, anchor="w")
     configure_treeview_for_alternating_rows(app.tree_pdfs)
-    app.tree_pdfs.grid(row=7, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 8))
+    app.tree_pdfs.grid(row=8, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0, 0))
     app._bind_treeview_sort(app.tree_pdfs, numeric_like={"PN"})
+    
+    scrollbar_y_pdfs = ttk.Scrollbar(parent, orient="vertical", command=app.tree_pdfs.yview)
+    scrollbar_y_pdfs.grid(row=8, column=6, sticky="ns")
+    app.tree_pdfs.configure(yscrollcommand=scrollbar_y_pdfs.set)
+    
+    scrollbar_x_pdfs = ttk.Scrollbar(parent, orient="horizontal", command=app.tree_pdfs.xview)
+    scrollbar_x_pdfs.grid(row=9, column=0, columnspan=6, sticky="ew", padx=8, pady=(0, 8))
+    app.tree_pdfs.configure(xscrollcommand=scrollbar_x_pdfs.set)
 
     # Grid-Konfiguration
     parent.grid_rowconfigure(4, weight=3)  # DOCX-Tabelle größer
-    parent.grid_rowconfigure(7, weight=1)  # PDFs kleiner
+    parent.grid_rowconfigure(8, weight=1)  # PDFs kleiner
     parent.grid_columnconfigure(5, weight=1)
 
 
