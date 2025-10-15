@@ -18,7 +18,8 @@ from .versand_view import build_versand
 from .ui_utils import (
     make_tree,
     bind_treeview_sort,
-    autosize_tree_columns
+    autosize_tree_columns,
+    _reapply_alternating_tags
 )
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     # UI Utils
     "make_tree",
     "bind_treeview_sort",
-    "autosize_tree_columns"
+    "autosize_tree_columns",
+    "_reapply_alternating_tags"
 ]

@@ -95,10 +95,23 @@ def bind_treeview_sort(tree: ttk.Treeview, numeric_like=None) -> None:
         data.sort(key=lambda t: _key_for(col, t[0]), reverse=descending)
         for idx, (_, k) in enumerate(data):
             tree.move(k, "", idx)
+            # Tags nach Sortierung neu setzen für alternierende Zeilen
+            _reapply_alternating_tags(tree, idx, k)
         tree.heading(col, command=lambda _c=col: _sort(_c, not descending))
 
     for c in list(tree["columns"] or []):
         tree.heading(c, command=lambda _c=c: _sort(_c, False))
+
+
+def _reapply_alternating_tags(tree: ttk.Treeview, idx: int, item_id: str) -> None:
+    """Setzt alternierende Zeilen-Tags neu basierend auf aktueller Position."""
+    current_tags = tree.item(item_id, 'tags')
+    # Behalte andere Tags (z.B. Status-Farben), ersetze nur evenrow/oddrow
+    other_tags = [tag for tag in current_tags if tag not in ('evenrow', 'oddrow')]
+    
+    # Neuen alternierenden Tag hinzufügen
+    new_tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
+    tree.item(item_id, tags=tuple(other_tags) + (new_tag,))
 
 
 def autosize_tree_columns(

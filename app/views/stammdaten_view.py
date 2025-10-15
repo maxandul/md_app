@@ -114,6 +114,9 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
         data.sort(key=lambda t: _to_key(t[0]), reverse=descending)
         for idx, (_, k) in enumerate(data):
             tree.move(k, "", idx)
+            # Tags nach Sortierung neu setzen für alternierende Zeilen
+            from app.views.ui_utils import _reapply_alternating_tags
+            _reapply_alternating_tags(tree, idx, k)
         tree.heading(col, command=lambda _c=col: _sort_tree_by(tree, _c, not descending))
 
     for c in cols_findings:

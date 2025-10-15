@@ -134,7 +134,9 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
 
     for c in cols:
         app.tree_dashboard.heading(c, text=c)
-        if c in ["Log-ID", "VG PN", "MA PN"]:
+        if c == "Log-ID":
+            app.tree_dashboard.column(c, width=50, anchor="w")  # Sehr schmal
+        elif c in ["VG PN", "MA PN"]:
             app.tree_dashboard.column(c, width=100, anchor="w")
         elif c in ["Status", "Dokument-Typ"]:
             app.tree_dashboard.column(c, width=120, anchor="w")
@@ -164,6 +166,9 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
         data.sort(key=lambda t: _to_key(t[0]), reverse=descending)
         for idx, (_, k) in enumerate(data):
             tree.move(k, "", idx)
+            # Tags nach Sortierung neu setzen für alternierende Zeilen
+            from app.views.ui_utils import _reapply_alternating_tags
+            _reapply_alternating_tags(tree, idx, k)
         tree.heading(col, command=lambda _c=col: _sort_tree_by_dashboard(tree, _c, not descending))
 
     for c in cols:
