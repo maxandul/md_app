@@ -39,8 +39,6 @@ mail:
       <li>Für Mitarbeitende, die zwischen Juni und September ihre Probezeit abgeschlossen haben, erhältst du nur einen <i>MD Ausblick</i>.</li>
     </ul>
 
-    <p>Bitte überlege dir im Rahmen des Ausblicks, ob Mitarbeitende in deinem Team für die Nominierung für das <a href="https://ktzuerich.sharepoint.com/sites/zh-personelles/SitePages/KNF-I.aspx?web=1">KNF I</a> oder <a href="https://ktzuerich.sharepoint.com/sites/zh-personelles/SitePages/KNF-II.aspx?web=1">KNF II</a> (Kadernachwuchsförderung) für 2026 in Frage kommen. Halte ein allfälliges Interesse im Ausblick unter Punkt 3 schriftlich fest.</p>
-
     <p>Für den Rückversand an <a href="mailto:hr@vd.zh.ch">hr@vd.zh.ch</a> gelten folgende Vorgaben:</p>
     <p><b>Bis zum 31.01.{rb_year}:</b></p>
     <ul>
@@ -64,7 +62,7 @@ mail:
 
     <p>Wir wünschen dir spannende und konstruktive Dialoge!</p>
 
-    <p>Herzliche Grüsse<br>Dein HR-Management</p>
+    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
 
 
 mail_underjaehrig:
@@ -76,7 +74,7 @@ mail_underjaehrig:
 
     <p>Hier wie gewünscht die MD-Unterlagen.</p>
 
-    <p>Herzliche Grüsse<br>Dein HR-Management</p>
+    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
 
 mail_erinnerung:
   subject_template: "Erinnerung: Fehlende MD-Unterlagen"
@@ -92,4 +90,4 @@ mail_erinnerung:
 
     <p>Vielen Dank für die Zustellung bis {frist_datum}.</p>
 
-    <p>Herzliche Grüsse<br>Dein HR-Management</p>
+    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
