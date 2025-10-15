@@ -66,6 +66,15 @@ def build_massenversand(app) -> None:
     entry.pack(side="left", padx=(0, 8))
     from app.controllers.versand_controller import refresh_mgr_table
     entry.bind("<KeyRelease>", lambda e: refresh_mgr_table(app))
+    
+    # Filter: Nur nicht versendete anzeigen
+    app.nur_nicht_versendet_var = tk.BooleanVar(value=False)
+    ttk.Checkbutton(
+        toolbar, 
+        text="Nur nicht versendete anzeigen",
+        variable=app.nur_nicht_versendet_var,
+        command=lambda: refresh_mgr_table(app)
+    ).pack(side="left", padx=(8, 0))
 
     create_info_button(
         parent=toolbar,
@@ -74,10 +83,15 @@ def build_massenversand(app) -> None:
             "Massenversand für den jährlichen MD-Durchlauf\n\n"
             "Verwendung:\n"
             "1) Optional: Suchfeld nutzen um nach Namen, OE oder Personalnummer zu filtern.\n"
-            "2) Vorgesetzte auswählen (Mehrfachauswahl mit Strg/Shift möglich).\n"
-            "3) Vorschau: 'E-Mail-Vorschau' zeigt alle zu versendenden Mails.\n"
-            "4) Versand: 'Generieren & Versenden' erstellt Dokumente und verschickt sofort.\n"
+            "2) Optional: [✓] Nur nicht versendete anzeigen - blendet bereits versendete VGs aus.\n"
+            "3) Vorgesetzte auswählen (Mehrfachauswahl mit Strg/Shift möglich).\n"
+            "4) Vorschau: 'E-Mail-Vorschau' zeigt alle zu versendenden Mails.\n"
+            "5) Versand: 'Generieren & Versenden' erstellt Dokumente und verschickt sofort.\n"
             "           'Generieren & Als Entwurf' erstellt Outlook-Entwürfe zur manuellen Prüfung.\n\n"
+            "Versand-Status:\n"
+            "• Grüne Zeilen: Bereits im Massenversand versendet (≥3 Dokumente im Tracking)\n"
+            "• Normale Zeilen: Noch nicht versendet\n"
+            "Hinweis: Einzelversände (1-2 Dokumente) werden nicht grün markiert.\n\n"
             "Jahr:\n"
             "Das verwendete Jahr wird oben im MD-Durchlauf-Feld festgelegt.\n"
             "Bei Auswahl von 2025 werden Rückblick 2025 und Ausblick 2026 erstellt.\n\n"
@@ -99,6 +113,8 @@ def build_massenversand(app) -> None:
         app.tree.heading(c, text=c)
         app.tree.column(c, width=120 if c in ("PN", "Anzahl MA") else 200, anchor="w")
     configure_treeview_for_alternating_rows(app.tree)
+    # Tag für versendete VGs konfigurieren
+    app.tree.tag_configure("versendet", background="#d4edda", foreground="#155724")
     app.tree.grid(row=2, column=0, columnspan=6, sticky="nsew", padx=8, pady=(0,0))
     app._bind_treeview_sort(app.tree, numeric_like={"PN", "Anzahl MA"})
 

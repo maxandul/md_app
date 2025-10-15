@@ -196,6 +196,21 @@ def refresh_mgr_table(app) -> None:
 
     # Filter anwenden
     filter_text = app.filter_var.get().lower() if hasattr(app, 'filter_var') else ""
+    nur_nicht_versendet = app.nur_nicht_versendet_var.get() if hasattr(app, 'nur_nicht_versendet_var') else False
+    
+    # Tracking-Daten laden um versendete VGs zu identifizieren
+    jahr = app.md_durchlauf_jahr.get()
+    tracking_path = Path(__file__).parent.parent / f"../tracking/md_logging_{jahr}.csv"
+    
+    vg_dokument_count = {}  # VG-PN -> Anzahl Dokumente im Tracking
+    if tracking_path.exists():
+        try:
+            df_tracking = pd.read_csv(tracking_path, sep=";", encoding="utf-8-sig")
+            # Zähle Dokumente pro VG
+            vg_counts = df_tracking.groupby("vg_pn").size()
+            vg_dokument_count = vg_counts.to_dict()
+        except Exception:
+            pass
 
     # Gefilterte Items sammeln
     filtered_items = []
@@ -204,27 +219,42 @@ def refresh_mgr_table(app) -> None:
         if mgr is None:
             continue
 
-        # Filter prüfen
+        # Versand-Status prüfen (≥3 Dokumente = Massenversand)
+        anzahl_dokumente = vg_dokument_count.get(str(vg_pn), 0)
+        ist_versendet = anzahl_dokumente >= 3
+        
+        # Filter: Nur nicht versendete
+        if nur_nicht_versendet and ist_versendet:
+            continue
+
+        # Filter: Suchtext
         if filter_text:
             mgr_text = f"{mgr.get('Nachname','')} {mgr.get('Rufname','')} {mgr.get('OE Kurzb.','')}".lower()
             if filter_text not in mgr_text:
                 continue
 
-        filtered_items.append((vg_pn, pack))
+        filtered_items.append((vg_pn, pack, ist_versendet))
 
     # Items mit eindeutigen IDs einfügen (konsistent mit versand_view.py)
-    for i, (vg_pn, pack) in enumerate(filtered_items):
+    for i, (vg_pn, pack, ist_versendet) in enumerate(filtered_items):
         mgr = pack["manager"]
         subs_count = len(pack["subs"])
         # iid darf beliebig sein; PN immer aus values[0] lesen!
         unique_id = f"{vg_pn}_{i}"
+        
+        # Tag basierend auf Versand-Status
+        if ist_versendet:
+            tag = "versendet"
+        else:
+            tag = get_row_tag(i)
+        
         app.tree.insert("", "end", iid=unique_id, values=[
             vg_pn,
             mgr.get("Nachname", ""),
             mgr.get("Rufname", ""),
             mgr.get("OE Kurzb.", ""),
             subs_count,
-        ], tags=(get_row_tag(i),))
+        ], tags=(tag,))
     
     # Automatische Spaltenbreiten-Anpassung
     try:
