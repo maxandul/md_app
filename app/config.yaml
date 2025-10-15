@@ -42,7 +42,7 @@ mail:
     <p>Für den Rückversand an <a href="mailto:hr@vd.zh.ch">hr@vd.zh.ch</a> gelten folgende Vorgaben:</p>
     <p><b>Bis zum 31.01.{rb_year}:</b></p>
     <ul>
-      <li>Ein PDF mit den gesammelten Feedbacks an dich. Beschriftung: Feedbacks_{rb_year}_DeinNachname_DeinVorname_DeinePersonalnummer.</li>
+      <li>Pro Mitarbeiter/in ein PDF mit dem Feedback an dich. Beschriftung: NameMitarbeiter/in_Feedback_an_DeinNachname_DeinVorname_DeinePersonalnummer.</li>
       <li>Pro Mitarbeiter/in ein ausgefüllter Rückblick sowohl als Word-Dokument als auch als PDF mit Unterschrift. Beschriftung: Rückblick_{rb_year}_NachnameMA_VornameMA_PersonalnummerMA.</li>
     </ul>
     <p><b>Bis zum 28.02.{ab_year}:</b></p>
@@ -54,6 +54,7 @@ mail:
     <ul>
       <li>Die Dokumente im Anhang sind automatisch generiert. Mitarbeitende in der Probezeit, kurz vor dem Austritt oder mit vakanten Vorgesetzten sind weitgehend berücksichtigt worden. Dennoch können nicht alle Eventualitäten vollständig vorweggenommen werden.</li>
       <li>Die administrative Verarbeitung erfolgt maschinell. Deshalb ist es wichtig, dass die gescannten PDF die Personalnummern am Ende der Beschriftung tragen und die ausgefüllten Word-Dateien mit den zur Verfügung gestellten Vorlagen retourniert werden.</li>
+      <li>Standardmässig genügt die einfache elektronische Unterschrift auf dem PDF, wie sie in Adobe Acrobat möglich ist. Bei einer Gesamtbewertung genügend / ungenügend oder wenn Uneinigkeit besteht, müssen beide Parteien die Dokumente handschriftlich unterzeichnen und den Scan beilegen.</li>
       <li>Sämtliche Unterlagen und Informationen zum Mitarbeitenden-Dialog sind auf <a href="https://ktzuerich.sharepoint.com/sites/vd/SitePages/Mitarbeitenden-Dialog-(MD).aspx">ZHub</a> zu finden.</li>
     </ul>
 

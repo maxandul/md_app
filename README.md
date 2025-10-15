@@ -82,12 +82,12 @@ md_app/
    Im Service Portal vom AFI Python 3.x bestellen (kostenlos)
 
 2. **Pakete installieren** (einmalig):
-   Doppelklick auf **Install (einmalig).bat**
+   Doppelklick auf **install_md (einmalig).bat**
    - Installiert alle benötigten Python-Pakete
    - Dauert nur beim ersten Mal (~2-3 Minuten)
 
 3. **Anwendung starten**:
-   Doppelklick auf **Start-Simple.bat**
+   Doppelklick auf **MD-App.bat**
    - Startet die Anwendung sofort
    - Keine weiteren Schritte nötig
    - Prüft Python-Installation automatisch

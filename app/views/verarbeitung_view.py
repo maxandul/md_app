@@ -72,7 +72,7 @@ def build_verarbeitung(parent: ttk.Frame, app) -> None:
             f"   • Verschiebt 'manuell' → '{MDConstants.UNVERARBEITET_DIR}/{MDConstants.MANUELL_DIR}'\n\n"
             "3) PDFs verarbeiten:\n"
             "   • Erkennt Dokumenttyp aus Dateinamen (Rückblick/Ausblick/Feedback)\n"
-            "   • Extrahiert Personalnummer\n"
+            "   • Setzt Personalnummer ans Ende der Beschriftung\n"
             "   • Feedback → ruecklauf/feedbacks/\n"
             "   • Rückblick/Ausblick → RPA-Zielordner (für Roboter-Upload)\n"
             "   • Aktualisiert Tracking-System\n\n"
