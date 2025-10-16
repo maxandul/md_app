@@ -23,11 +23,9 @@ mail:
   from_address: ""   # ODER leer lassen
   reply_to: "hr@vd.zh.ch"       # optional
   bcc: ""                       # optional
-  choose_account_smtp: "ulrich.andreas@hotmail.com"       # Optional: z.B. "hr-gruppenpostfach@deine-org.ch"
+  choose_account_smtp: "hr@vd.zh.ch"       # Optional: z.B. "hr@vd.zh.ch"
   subject_template: "MD-Unterlagen Durchlauf {rb_year}/{ab_year}"
   body_html_template: |
-    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
-
     <p>{anrede}</p>
 
     <p>Der jährliche Mitarbeitenden-Dialog steht an. Im Anhang findest du:</p>
@@ -39,8 +37,10 @@ mail:
       <li>Für Mitarbeitende, die zwischen Juni und September ihre Probezeit abgeschlossen haben, erhältst du nur einen <i>MD Ausblick</i>.</li>
     </ul>
 
+    <p>Bitte überlege dir im Rahmen des Ausblicks, ob Mitarbeitende in deinem Team für die Nominierung für das <a href="https://ktzuerich.sharepoint.com/sites/zh-personelles/SitePages/KNF-I.aspx">KNF I</a> oder <a href="https://ktzuerich.sharepoint.com/sites/zh-personelles/SitePages/KNF-II.aspx">KNF II</a> (Kadernachwuchsförderung) für {ab_year} in Frage kommen. Halte ein allfälliges Interesse im Ausblick unter Punkt 3 schriftlich fest.</p>
+
     <p>Für den Rückversand an <a href="mailto:hr@vd.zh.ch">hr@vd.zh.ch</a> gelten folgende Vorgaben:</p>
-    <p><b>Bis zum 31.01.{rb_year}:</b></p>
+    <p><b>Bis zum 31.01.{ab_year}:</b></p>
     <ul>
       <li>Pro Mitarbeiter/in ein PDF mit dem Feedback an dich. Beschriftung: NameMitarbeiter/in_Feedback_an_DeinNachname_DeinVorname_DeinePersonalnummer.</li>
       <li>Pro Mitarbeiter/in ein ausgefüllter Rückblick sowohl als Word-Dokument als auch als PDF mit Unterschrift. Beschriftung: Rückblick_{rb_year}_NachnameMA_VornameMA_PersonalnummerMA.</li>
@@ -62,25 +62,26 @@ mail:
 
     <p>Wir wünschen dir spannende und konstruktive Dialoge!</p>
 
-    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
+    <p>Herzliche Grüsse<br>Dein Human Resources & Entwicklung</p>
+
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
 
 
 mail_underjaehrig:
   subject_template: "MD-Unterlagen"
   body_html_template: |
-    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
-
     <p>{anrede}</p>
 
     <p>Hier wie gewünscht die MD-Unterlagen.</p>
 
-    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
+    <p>Herzliche Grüsse<br>Dein Human Resources & Entwicklung</p>
+
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
+
 
 mail_erinnerung:
   subject_template: "Erinnerung: Fehlende MD-Unterlagen"
   body_html_template: |
-    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
-
     <p>Hallo {rufname},</p>
 
     <p>uns fehlen noch folgende MD-Unterlagen:</p>
@@ -90,4 +91,6 @@ mail_erinnerung:
 
     <p>Vielen Dank für die Zustellung bis {frist_datum}.</p>
 
-    <p>Herzliche Grüsse<br>Dein Team Human Resources & Entwicklung</p>
+    <p>Herzliche Grüsse<brDein Human Resources & Entwicklung</p>
+
+    <p>#### Dies ist eine automatisch generierte E-Mail ####</p>
