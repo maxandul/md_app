@@ -216,15 +216,8 @@ def refresh_mgr_table(app) -> None:
                 # Zähle Dokumente pro VG
                 vg_counts = df_tracking.groupby("vg_pn").size()
                 vg_dokument_count = vg_counts.to_dict()
-                
-                # Debug-Ausgabe in Log
-                from app.logging_config import get_logger
-                logger = get_logger()
-                logger.info(f"Tracking geladen für Jahr {jahr}: {len(vg_dokument_count)} VGs mit Einträgen")
-        except Exception as e:
-            from app.logging_config import get_logger
-            logger = get_logger()
-            logger.warning(f"Fehler beim Laden von Tracking für Jahr {jahr}: {e}")
+        except Exception:
+            pass
 
     # Gefilterte Items sammeln
     filtered_items = []
@@ -241,12 +234,6 @@ def refresh_mgr_table(app) -> None:
         
         anzahl_dokumente = vg_dokument_count.get(vg_pn_normalized, 0)
         ist_versendet = anzahl_dokumente >= 3
-        
-        # Debug für erste 3 VGs
-        if len(filtered_items) < 3:
-            from app.logging_config import get_logger
-            logger = get_logger()
-            logger.info(f"VG {vg_pn_normalized}: {anzahl_dokumente} Dokumente, versendet={ist_versendet}")
         
         # Filter: Nur nicht versendete
         if nur_nicht_versendet and ist_versendet:
@@ -270,11 +257,6 @@ def refresh_mgr_table(app) -> None:
         # Tag basierend auf Versand-Status
         if ist_versendet:
             tag = "versendet"
-            # Debug: Zeige welche VGs grün markiert werden
-            if i < 5:  # Nur erste 5 loggen
-                from app.logging_config import get_logger
-                logger = get_logger()
-                logger.info(f"VG {mgr.get('Nachname','')} ({vg_pn_normalized}) wird GRÜN markiert ({anzahl_dokumente} Dokumente)")
         else:
             tag = get_row_tag(i)
         
