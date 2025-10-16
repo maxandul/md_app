@@ -106,16 +106,23 @@ def bind_treeview_sort(tree: ttk.Treeview, numeric_like=None) -> None:
 def _reapply_alternating_tags(tree: ttk.Treeview, idx: int, item_id: str) -> None:
     """Setzt alternierende Zeilen-Tags neu basierend auf aktueller Position."""
     current_tags = tree.item(item_id, 'tags')
-    # Behalte andere Tags (z.B. Status-Farben, "versendet"), ersetze nur evenrow/oddrow
-    other_tags = [tag for tag in current_tags if tag not in ('evenrow', 'oddrow')]
+    if not current_tags:
+        current_tags = ()
     
-    # Wenn Item "versendet" Tag hat, behalte nur das (überschreibt alternierende Farben)
-    if 'versendet' in other_tags:
-        tree.item(item_id, tags=('versendet',))
+    # Behalte wichtige Tags (Status-Farben, "versendet"), ersetze nur evenrow/oddrow
+    important_tags = [tag for tag in current_tags if tag not in ('evenrow', 'oddrow')]
+    
+    # Spezielle Tags haben Vorrang (überschreiben alternierende Farben)
+    special_tags = {'versendet', 'ausstehend', 'erhalten', 'pruefung_noetig', 'eruebrigt', 'ok', 'manuell'}
+    has_special_tag = any(tag in special_tags for tag in important_tags)
+    
+    if has_special_tag:
+        # Behalte nur die wichtigen Tags, keine alternierenden Farben
+        tree.item(item_id, tags=tuple(important_tags))
     else:
-        # Neuen alternierenden Tag hinzufügen
+        # Setze alternierende Farbe basierend auf neuer Position
         new_tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
-        tree.item(item_id, tags=tuple(other_tags) + (new_tag,))
+        tree.item(item_id, tags=tuple(important_tags) + (new_tag,))
 
 
 def autosize_tree_columns(
