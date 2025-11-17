@@ -17,7 +17,7 @@ Das MD-Prozess-Tool automatisiert die Verwaltung des jährlichen Mitarbeitenden-
 ## 🏗️ Projektstruktur
 
 ```
-md_app/
+02 Mitarbeitenden-Dialog/
 ├── app/                         # Hauptanwendung
 │   ├── main.py                  # GUI-Hauptanwendung (Tkinter)
 │   ├── config.yaml              # Konfigurationsdatei
