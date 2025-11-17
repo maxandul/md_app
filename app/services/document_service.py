@@ -46,21 +46,30 @@ def _typ_to_string(typ: DocType | str | None) -> str:
     return str(typ)
 
 
-def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
+def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series | list[pd.Series]]:
     """
     Erstellt Index für schnelle PN-Suche in SAP-Daten.
+    Unterstützt Mehrfachanstellungen: speichert Liste wenn mehrere Zeilen für eine PN existieren.
     
     Args:
         df: SAP-Stammdaten DataFrame
         
     Returns:
-        Dictionary mit PN -> SAP-Datensatz
+        Dictionary mit PN -> SAP-Datensatz (oder Liste bei Mehrfachanstellungen)
     """
     idx = {}
     for _, r in df.iterrows():
         pn = str(r.get("ID_NO_ZERO", "")).strip()
         if pn:
-            idx[pn] = r
+            if pn in idx:
+                # Mehrfachanstellung: konvertiere zu Liste
+                existing = idx[pn]
+                if isinstance(existing, list):
+                    existing.append(r)
+                else:
+                    idx[pn] = [existing, r]
+            else:
+                idx[pn] = r
     return idx
 
 
@@ -215,10 +224,28 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            sap_row = _pn_in_sap(pn, sap_idx)
+            # VG-PN aus Tags extrahieren (für Prüfung)
+            vg_pn = (tags.get("rb_pn_vg") or "").strip()
+            
+            # SAP-Zeile finden: zuerst mit VG-PN-Match, sonst erste Zeile mit dieser PN
+            sap_row = None
+            if pn in sap_idx:
+                candidates = sap_idx[pn] if isinstance(sap_idx[pn], list) else [sap_idx[pn]]
+                
+                # Wenn VG-PN vorhanden, versuche zuerst nach VG-PN zu matchen
+                if vg_pn:
+                    for candidate in candidates:
+                        candidate_vg = str(candidate.get("Dir. Vorgesetzter (PN)", "") or "").strip()
+                        if candidate_vg == vg_pn:
+                            sap_row = candidate
+                            break
+                
+                # Falls kein VG-PN-Match: nimm erste Zeile
+                if sap_row is None and candidates:
+                    sap_row = candidates[0]
+            
             if sap_row is None:
                 # VG-PN aus Tags extrahieren für Tracking
-                vg_pn = (tags.get("rb_pn_vg") or "").strip()
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
@@ -231,9 +258,23 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
+            # Prüfe VG-PN-Übereinstimmung (wenn VG-PN im Dokument vorhanden)
+            if vg_pn:
+                sap_vg_pn = str(sap_row.get("Dir. Vorgesetzter (PN)", "") or "").strip()
+                if sap_vg_pn != vg_pn:
+                    # VG-PN stimmt nicht überein
+                    if vg_pn and pn:
+                        tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                        tracking.mark_error(p.name, pn, "Rückblick Word", f"VG-PN stimmt nicht überein (Dokument: {vg_pn}, SAP: {sap_vg_pn})", vg_pn)
+                    
+                    results.append({
+                        "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
+                        "status": ProcStatus.MANUELL.value, "reason": f"VG-PN stimmt nicht überein (Dokument: {vg_pn}, SAP: {sap_vg_pn})", "extras": {"all_tags": tags}
+                    })
+                    continue
+
             if not _name_matches(name, sap_row):
                 # VG-PN aus Tags extrahieren für Tracking
-                vg_pn = (tags.get("rb_pn_vg") or "").strip()
                 
                 # Tracking: Markiere als empfangen aber fehlerhaft
                 if vg_pn and pn:
@@ -263,7 +304,7 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
                 })
                 continue
 
-            # VG-PN aus Tags extrahieren
+            # VG-PN aus Tags extrahieren (aus Word-Dokument)
             vg_pn = (tags.get("rb_pn_vg") or "").strip()
             
             # Duplikat-Erkennung - spezifisch für Rückblick Word mit VG-PN
@@ -283,7 +324,15 @@ def process_docx_folder(input_dir: Path, sap_df: pd.DataFrame, max_files: int | 
             
             # Status im Tracking-System auf "erhalten" setzen
             if vg_pn and pn:
-                tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                success = tracking.mark_received_word(vg_pn, pn, "Rückblick Word")
+                if not success:
+                    # Hinweis: Kein Eintrag im Logging-File gefunden
+                    logger.warning(
+                        f"⚠️ Für Dokument '{p.name}' wurde kein Eintrag im md_logging.csv gefunden. "
+                        f"Kombination: VG-PN={vg_pn}, MA-PN={pn}, Dokumenttyp='Rückblick Word'. "
+                        f"Das Dokument wurde verarbeitet, aber das Tracking wurde nicht aktualisiert.",
+                        extra={"vg_pn": vg_pn, "ma_pn": pn, "file": p.name, "doc_type": "Rückblick Word"}
+                    )
             
             results.append({
                 "file": p.name, "typ": _typ_to_string(typ), "pn": pn, "name": name,
@@ -412,37 +461,53 @@ def _name_matches(full_name_from_doc: str, sap_row: pd.Series) -> bool:
     return doc == sap
 
 
-def _pn_in_sap(pn: str, sap_index: dict[str, pd.Series]) -> pd.Series | None:
+def _pn_in_sap(pn: str, sap_index: dict[str, pd.Series | list[pd.Series]]) -> pd.Series | None:
     """
     Sucht Personalnummer in SAP-Index.
+    Bei Mehrfachanstellungen wird die erste Zeile zurückgegeben.
     
     Args:
         pn: Personalnummer zum Suchen
-        sap_index: Dictionary mit PN -> SAP-Datensatz
+        sap_index: Dictionary mit PN -> SAP-Datensatz (oder Liste bei Mehrfachanstellungen)
         
     Returns:
         SAP-Datensatz oder None wenn nicht gefunden
     """
     if not pn:
         return None
-    return sap_index.get(str(pn))
+    result = sap_index.get(str(pn))
+    if result is None:
+        return None
+    # Wenn Liste (Mehrfachanstellung), nimm erste Zeile
+    if isinstance(result, list):
+        return result[0] if result else None
+    return result
 
 
-def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series]:
+def build_sap_index(df: pd.DataFrame) -> dict[str, pd.Series | list[pd.Series]]:
     """
     Erstellt Index für schnelle PN-Suche in SAP-Daten.
+    Unterstützt Mehrfachanstellungen: speichert Liste wenn mehrere Zeilen für eine PN existieren.
     
     Args:
         df: SAP-Stammdaten DataFrame
         
     Returns:
-        Dictionary mit PN -> SAP-Datensatz
+        Dictionary mit PN -> SAP-Datensatz (oder Liste bei Mehrfachanstellungen)
     """
     idx = {}
     for _, r in df.iterrows():
         pn = str(r.get("ID_NO_ZERO", "")).strip()
         if pn:
-            idx[pn] = r
+            if pn in idx:
+                # Mehrfachanstellung: konvertiere zu Liste
+                existing = idx[pn]
+                if isinstance(existing, list):
+                    existing.append(r)
+                else:
+                    idx[pn] = [existing, r]
+            else:
+                idx[pn] = r
     return idx
 
 
@@ -638,7 +703,21 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
             pn_match = re.search(r'(?:^|[^0-9])(\d{6})(?=[^0-9]|$)', fname)
             pn = pn_match.group(1) if pn_match else ""
 
-            if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
+            # Für Feedback-PDFs: PN ist VG-PN, auch wenn nicht in SAP, trotzdem verarbeiten
+            if typ == DocType.FEEDBACK:
+                # Feedback-PDFs: PN ist VG-PN, auch wenn nicht in SAP gefunden, trotzdem verarbeiten
+                if not pn:
+                    status = ProcStatus.PRUEFUNG_NOETIG.value
+                    target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
+                elif pn not in sap_df["ID_NO_ZERO"].astype(str).values:
+                    # PN nicht in SAP, aber vorhanden - trotzdem verarbeiten, aber Status PRUEFUNG_NOETIG
+                    status = ProcStatus.PRUEFUNG_NOETIG.value
+                    target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
+                else:
+                    # PN in SAP gefunden - normal verarbeiten
+                    status = ProcStatus.OK.value
+            elif not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):
+                # Für Rückblick/Ausblick: PN muss in SAP sein
                 status = ProcStatus.PRUEFUNG_NOETIG.value
                 # Korrektur: Von services/ aus 2 Ebenen hoch zur app/, Config-Pfade sind relativ zu app/
                 target_dir = Path(__file__).parent.parent / CFG["paths"]["ruecklauf"]["manuell"]
@@ -792,9 +871,23 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                 row = sap_df[sap_df["ID_NO_ZERO"].astype(str) == pn].iloc[0]
                 name = f"{row.get('Rufname','')} {row.get('Nachname','')}".strip()
 
-            # Tracking-System aktualisieren für erfolgreiche Verarbeitung
-            if status == ProcStatus.OK.value and pn:
-                if typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
+            # Tracking-System aktualisieren
+            # Für Feedback-PDFs: Auch bei PRUEFUNG_NOETIG versuchen zu tracken (wenn PN vorhanden)
+            if pn:
+                if typ == DocType.FEEDBACK:
+                    # Für Feedback ist PN die VG-PN (Vorgesetzter, der das Feedback erhalten hat)
+                    # mark_received_word erwartet (vg_pn, ma_pn, doc_type)
+                    # Bei Feedback: vg_pn = pn (aus Dateiname), ma_pn = "" (kein Mitarbeiter)
+                    success = tracking.mark_received_word(pn, "", "Feedback PDF")
+                    if not success:
+                        # Hinweis: Kein Eintrag im Logging-File gefunden
+                        logger.warning(
+                            f"⚠️ Für Feedback-PDF '{fname}' wurde kein Eintrag im md_logging.csv gefunden. "
+                            f"Kombination: VG-PN={pn}, MA-PN=(leer), Dokumenttyp='Feedback PDF'. "
+                            f"Das Dokument wurde verarbeitet, aber das Tracking wurde nicht aktualisiert.",
+                            extra={"vg_pn": pn, "ma_pn": "", "file": fname, "doc_type": "Feedback PDF"}
+                        )
+                elif status == ProcStatus.OK.value and typ in (DocType.RUECKBLICK, DocType.AUSBLiCK):
                     # PDF-Dokumente: Nur MA-PN bekannt, VG-PN nicht verfügbar
                     doc_type = f"{typ.value} PDF"
                     tracking_result = tracking.mark_received_pdf(pn, doc_type)
@@ -818,11 +911,6 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                     elif tracking_result["matched_count"] == 0:
                         # Kein Tracking-Eintrag - Dokument war nicht erwartet
                         reason = tracking_result["message"]
-                elif typ == DocType.FEEDBACK:
-                    # Für Feedback ist PN die VG-PN (Vorgesetzter, der das Feedback erhalten hat)
-                    # mark_received_word erwartet (vg_pn, ma_pn, doc_type)
-                    # Bei Feedback: vg_pn = pn (aus Dateiname), ma_pn = "" (kein Mitarbeiter)
-                    tracking.mark_received_word(pn, "", "Feedback PDF")
 
                 logger.info("PDF erfolgreich verschoben", extra={"file": fname, "target": str(dest)})
                 results.append({
