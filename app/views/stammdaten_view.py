@@ -37,15 +37,17 @@ def build_stammdaten(parent: ttk.Frame, app) -> None:
             "1) ad-hoc Query 'VD_MD' aus SAP exportieren\n"
             "2) Dateiname & Ort: 'EXPORT.xlsx' im Ordner 'sap_stammdaten'.\n"
             "3) Spalten (erste Zeile, exakt):\n"
-            "   ID_NO_ZERO, Rufname, Nachname, OE Bez., OE Kurzb., Plans. Bez.,\n"
-            "   lange ID/Nummer, Dir. Vorgesetzter (PN), BsGrd\n"
+            "   ID_NO_ZERO, Rufname, Nachname, Austritt, Eintritt, Ende Probezeit,\n"
+            "   OE Bez., OE Kurzb., Plans. Bez., lange ID/Nummer, Dir. Vorgesetzter (PN),\n"
+            "   lange ID/Nummer, Dir. Vorgesetzter (PN), BsGrd, Bewilligung für, Ans.\n"
             "4) Alle GsGrd = 0 löschen.\n"
             "5) Mehrere Bewilligungen führen zu mehreren Zeilen. Alle Bewilligungen\n"
-            "   in eine Zeile zusammenführen. Restliche Zeilen löschen.\n"
+            "   in eine Zelle pro Mitarbeiter/in zusammenführen.\n"
+            "   Restliche Zeilen und Spalten löschen.\n"
             "6) ID_NO_ZERO auf Duplikate prüfen und Duplikatelöschen.\n"
             "   Mehrfachanstellungen brauchen pro Anstellung eine Zeile.\n"
             "7) Zeilen mit Dir. Vorgesetzter (PN) = 0 sind erlaubt und können\n"
-            "   später ergänzt werden."
+            "   später ergänzt werden. Bei Amtsleitenden Dir. Vorgesetzter (PN) = 0 erfassen.\n"
         ),
         title="Info • SAP Stammdaten prüfen",
         side="right",

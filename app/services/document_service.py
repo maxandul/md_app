@@ -590,19 +590,24 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
     def _ensure_pn_suffix(filename: str, pn: str) -> str:
         """Hängt _<pn> vor die .pdf-Endung, falls noch nicht vorhanden.
         Verändert den Rest des Namens nicht.
+        Entfernt auch Klammerzusätze wie (1) am Ende, bevor die PN angehängt wird.
         """
         if not pn:
             return filename
         stem, ext = Path(filename).stem, Path(filename).suffix
         if ext.lower() != MDConstants.ALLOWED_EXTENSIONS[1]:
             ext = Path(filename).suffix  # unberührt
+        
+        # Entferne Klammerzusätze am Ende (z.B. " (1)", " (2)", etc.)
+        stem = re.sub(r'\s*\(\d+\)\s*$', '', stem)
+        
         # Bereits korrekt am Ende?
         if re.search(rf"_(?:{re.escape(pn)})$", stem):
             return filename
         # Falls Stem bereits mit PN endet (ohne Unterstrich), trotzdem standardisieren
-        if re.search(rf"(?:^|[^0-9]){re.escape(pn)}$", stem):
+        if re.search(rf"(?:^|[^0-9]){re.escape(pn)}(?=[^0-9]|$)", stem):
             # entferne evtl. vorhandenes PN am Ende ohne Unterstrich
-            stem = re.sub(rf"{re.escape(pn)}$", "", stem).rstrip("_")
+            stem = re.sub(rf"{re.escape(pn)}(?=[^0-9]|$)", "", stem).rstrip("_")
         return f"{stem}_{pn}{ext}"
 
     for pdf_path in in_dir.glob(f"*{MDConstants.ALLOWED_EXTENSIONS[1]}"):
@@ -627,7 +632,10 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
 
             # PN aus Dateiname ziehen (6-stellige Zahl, meist am Ende)
             # Sucht nach 6-stelligen Zahlen, isoliert oder mit _ davor/danach
-            pn_match = re.search(r'(?:^|_)(\d{6})(?:_|\.|$)', fname)
+            # Erkennt auch Personalnummern mit Klammerzusatz wie (1) am Ende
+            # Pattern: 6 Ziffern, die nicht Teil einer längeren Zahl sind
+            # Kann am Anfang, in der Mitte oder am Ende stehen, mit/ohne Unterstrich, mit/ohne Klammern danach
+            pn_match = re.search(r'(?:^|[^0-9])(\d{6})(?=[^0-9]|$)', fname)
             pn = pn_match.group(1) if pn_match else ""
 
             if not (pn and pn in sap_df["ID_NO_ZERO"].astype(str).values):

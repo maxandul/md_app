@@ -20,10 +20,9 @@ paths:
 
 mail:
   send_mode: "display"          # "display" zum Testen, "send" für produktiv
-  from_address: ""   # ODER leer lassen
   reply_to: "hr@vd.zh.ch"       # optional
   bcc: ""                       # optional
-  choose_account_smtp: "hr@vd.zh.ch"       # Optional: z.B. "hr@vd.zh.ch"
+  choose_account_smtp: "hr@vd.zh.ch"  # Gruppenpostfach-Adresse (wird als direkter Absender verwendet)
   subject_template: "MD-Unterlagen Durchlauf {rb_year}/{ab_year}"
   body_html_template: |
     <p>{anrede}</p>

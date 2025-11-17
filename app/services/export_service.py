@@ -36,6 +36,8 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
     Baut aus den 'ok'-Rückblick-DOCX-Ergebnissen die SAP-Massenupload-Tabelle
     gemäss Vorgabe (Beurteilungsart = '1', Datumslogik mit Eintritt/Austritt,
     Zeitraum-Felder an IT9075 geklemmt).
+    
+    Wichtig: Verarbeitet NUR DOCX-Dateien, keine PDFs.
     """
     # PN -> Liste SAP-Zeilen Index (mehrere Anstellungen möglich)
     def _norm_pn(s: str) -> str:
@@ -56,6 +58,11 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
     rows = []
 
     for r in results:
+        # Nur DOCX-Dateien verarbeiten, keine PDFs
+        fname = str(r.get("file", "")).lower()
+        if fname.endswith(".pdf"):
+            continue
+        
         if r.get("status") != ProcStatus.OK.value or r.get("typ") != DocType.RUECKBLICK.value:
             continue
 
@@ -94,6 +101,10 @@ def export_sap_massenupload(results: list[dict], sap_df: pd.DataFrame, out_xlsx:
         doc_von = _d(tags.get("rb_datum_von", ""))
         doc_bis = _d(tags.get("rb_datum_bis", ""))
         datum_mab = _d(tags.get("rb_datum_gespraech", ""))
+        
+        # Fallback: Wenn Datum MAB leer ist, verwende aktuelles Datum
+        if pd.isna(datum_mab):
+            datum_mab = pd.Timestamp.today()
 
         # Rückblick-Jahr bestimmen
         if not pd.isna(doc_von):
