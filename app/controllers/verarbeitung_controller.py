@@ -122,7 +122,11 @@ def run_full_processing(app) -> None:
             typ = result.get("typ", "")
             
             # Entscheide basierend auf Dateityp (Word vs. PDF)
-            is_pdf = fname.lower().endswith(".pdf") or "PDF" in str(typ)
+            # Prüfe zuerst Dateiendung, dann Typ-String
+            is_pdf = fname.lower().endswith(".pdf") if fname else False
+            if not is_pdf:
+                # Fallback: Prüfe ob "PDF" im Typ-String steht
+                is_pdf = "PDF" in str(typ).upper()
             
             if is_pdf:
                 # PDF-Dokumente in PDF-Tabelle

@@ -43,14 +43,13 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
             "• Aktualisieren: Lädt aktuelle Tracking-Daten aus 'tracking/md_logging_{jahr}.csv'.\n"
             "  Das Jahr richtet sich nach dem oben ausgewählten MD-Durchlaufjahr.\n\n"
             "• Filter:\n"
-            "  - Name: Suche nach Vorgesetzten- oder Mitarbeiter-Namen\n"
+            "  - Suche (alle Spalten): Durchsucht alle Spalten nach dem eingegebenen Text\n"
+            "    Beispiel: 'Müller' findet Einträge mit 'Müller' in beliebiger Spalte\n"
             "  - Status: Zeige nur Einträge mit bestimmtem Status\n"
             "    · ausstehend: Dokument noch nicht eingegangen\n"
-            "    · erhalten: Dokuemnt eingegangen\n"
+            "    · erhalten: Dokument eingegangen\n"
             "    · prüfung_nötig: Fehler bei Verarbeitung (siehe Grund)\n"
-            "    · erübrigt: Manuell als nicht mehr relevant markiert\n"
-            "  - OE: Suche nach Organisationseinheit (enthält-Logik)\n"
-            "    Beispiel: 'Human Resources' findet alle HR-Mitarbeiter\n\n"
+            "    · erübrigt: Manuell als nicht mehr relevant markiert\n\n"
             "• Manuelle Anpassung:\n"
             "  Einzelnen Eintrag auswählen und Status/Grund ändern.\n"
             "  Nützlich bei Sonderfällen oder Korrekturen.\n\n"
@@ -77,10 +76,10 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
 
     ttk.Label(filter_frame, text="Filter:").pack(side="left", padx=(0, 8))
 
-    ttk.Label(filter_frame, text="Name:").pack(side="left", padx=(0, 4))
-    app.dash_name_search = ttk.Entry(filter_frame, width=15)
-    app.dash_name_search.pack(side="left", padx=(0, 16))
-    app.dash_name_search.bind("<KeyRelease>", lambda e: refresh_dashboard(app))
+    ttk.Label(filter_frame, text="Suche (alle Spalten):").pack(side="left", padx=(0, 4))
+    app.dash_search = ttk.Entry(filter_frame, width=25)
+    app.dash_search.pack(side="left", padx=(0, 16))
+    app.dash_search.bind("<KeyRelease>", lambda e: refresh_dashboard(app))
 
     ttk.Label(filter_frame, text="Status:").pack(side="left", padx=(0, 4))
     app.dash_status_filter = ttk.Combobox(
@@ -96,11 +95,6 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     )
     app.dash_status_filter.pack(side="left", padx=(0, 16))
     app.dash_status_filter.bind("<<ComboboxSelected>>", lambda e: refresh_dashboard(app))
-
-    ttk.Label(filter_frame, text="OE:").pack(side="left", padx=(0, 4))
-    app.dash_oe_search = ttk.Entry(filter_frame, width=20)
-    app.dash_oe_search.pack(side="left")
-    app.dash_oe_search.bind("<KeyRelease>", lambda e: refresh_dashboard(app))
 
     # Status-Überschrift
     ttk.Label(parent, text="Status-Übersicht:", style='SectionHeading.TLabel').grid(row=2, column=0, sticky="w", padx=8, pady=(0, 4))
@@ -135,19 +129,21 @@ def build_dashboard(parent: ttk.Frame, app) -> None:
     for c in cols:
         app.tree_dashboard.heading(c, text=c)
         if c == "Log-ID":
-            app.tree_dashboard.column(c, width=50, anchor="w")  # Sehr schmal
-        elif c in ["VG PN", "MA PN"]:
-            app.tree_dashboard.column(c, width=100, anchor="w")
-        elif c in ["Status", "Dokument-Typ"]:
-            app.tree_dashboard.column(c, width=120, anchor="w")
-        elif c in ["Erwartet", "Erhalten"]:
-            app.tree_dashboard.column(c, width=80, anchor="w")
-        elif c in ["Zuletzt erinnert am", "Versendet am"]:
-            app.tree_dashboard.column(c, width=140, anchor="w")
+            # Sehr schmal standardmäßig, aber manuell anpassbar
+            app.tree_dashboard.column(c, width=50, anchor="w", stretch=True)
         elif c == "OE-Kette":
-            app.tree_dashboard.column(c, width=250, anchor="w")
+            # Schmal standardmäßig, aber manuell anpassbar
+            app.tree_dashboard.column(c, width=150, anchor="w", stretch=True)
+        elif c in ["VG PN", "MA PN"]:
+            app.tree_dashboard.column(c, width=100, anchor="w", stretch=True)
+        elif c in ["Status", "Dokument-Typ"]:
+            app.tree_dashboard.column(c, width=120, anchor="w", stretch=True)
+        elif c in ["Erwartet", "Erhalten"]:
+            app.tree_dashboard.column(c, width=80, anchor="w", stretch=True)
+        elif c in ["Zuletzt erinnert am", "Versendet am"]:
+            app.tree_dashboard.column(c, width=140, anchor="w", stretch=True)
         else:
-            app.tree_dashboard.column(c, width=150, anchor="w")
+            app.tree_dashboard.column(c, width=150, anchor="w", stretch=True)
 
     # Sortierbare Spaltenköpfe (lokale Sort-Funktion wie im Original)
     def _sort_tree_by_dashboard(tree: ttk.Treeview, col: str, descending: bool) -> None:

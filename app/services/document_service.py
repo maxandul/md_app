@@ -819,8 +819,10 @@ def process_pdfs(in_dir: Path, out_root: Path, sap_df: pd.DataFrame, durchlauf_j
                         # Kein Tracking-Eintrag - Dokument war nicht erwartet
                         reason = tracking_result["message"]
                 elif typ == DocType.FEEDBACK:
-                    # Für Feedback ist PN die VG-PN - eindeutige Zuordnung
-                    tracking.mark_received_word("", pn, "Feedback PDF")  # Feedback hat keine MA, nur VG
+                    # Für Feedback ist PN die VG-PN (Vorgesetzter, der das Feedback erhalten hat)
+                    # mark_received_word erwartet (vg_pn, ma_pn, doc_type)
+                    # Bei Feedback: vg_pn = pn (aus Dateiname), ma_pn = "" (kein Mitarbeiter)
+                    tracking.mark_received_word(pn, "", "Feedback PDF")
 
                 logger.info("PDF erfolgreich verschoben", extra={"file": fname, "target": str(dest)})
                 results.append({

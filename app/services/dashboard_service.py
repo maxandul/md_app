@@ -20,24 +20,21 @@ def refresh_dashboard(app) -> None:
         app.tree_dashboard.delete(item)
 
     try:
-        name_search = app.dash_name_search.get().strip().lower()
+        # Allgemeine Suche in allen Spalten
+        search_text = app.dash_search.get().strip().lower() if hasattr(app, 'dash_search') else ""
         status_filter = app.dash_status_filter.get().strip()
-        oe_search = app.dash_oe_search.get().strip().lower() if hasattr(app, 'dash_oe_search') else ""
 
         df = app.tracking.get_dashboard_data(filter_status=status_filter)
         if df.empty:
             return
 
-        if name_search:
-            name_mask = (
-                df["vg_name"].astype(str).str.lower().str.contains(name_search, na=False)
-                | df["ma_name"].astype(str).str.lower().str.contains(name_search, na=False)
-            )
-            df = df[name_mask]
-        
-        if oe_search:
-            oe_mask = df["oe_bez_kette"].astype(str).str.lower().str.contains(oe_search, na=False)
-            df = df[oe_mask]
+        # Allgemeine Suche: Sucht in allen Spalten
+        if search_text:
+            # Alle Spalten durchsuchen
+            mask = pd.Series([False] * len(df))
+            for col in df.columns:
+                mask |= df[col].astype(str).str.lower().str.contains(search_text, na=False)
+            df = df[mask]
 
         def safe_value(val):
             try:
